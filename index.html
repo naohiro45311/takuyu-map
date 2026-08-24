@@ -107,19 +107,20 @@
       <label><input type="checkbox" id="toggleAreas" checked> 区域境界</label>
       <label><input type="checkbox" id="toggleNumbers" checked> 区域番号</label>
       <label><input type="checkbox" id="toggleNoVisit" checked> 訪問しない場所</label>
-      <label><input type="checkbox" id="toggleVisited" checked> 会えた家</label>
+      <label><input type="checkbox" id="toggleVisited" checked> 共有記録</label>
     </div>
     <div class="shared-controls">
-      <button type="button" id="addModeBtn" disabled>会えた家を追加</button>
-      <button type="button" id="clearAreaBtn" disabled>この区域の会えた印を全部消す</button>
+      <button type="button" id="addModeBtn" disabled>記録を追加</button>
+      <button type="button" id="clearAreaBtn" disabled>この区域の共有印を全部消す</button>
       <span id="firebaseStatus">Firebaseに接続しています…</span>
     </div>
   </div>
 
   <div id="map"></div>
   <div class="note">
-    ①区域番号を選択 → ②「会えた家を追加」→ ③ボタンが「追加モード中」になったら家の位置をタップ →
-    ④表示された「会えた」を押します。✓印はFirestore経由で他端末にもリアルタイム共有されます。
+    ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
+    ④「会えた（青）」「再訪問（緑）」「訪問拒否（赤）」から選択します。
+    登録した印はFirestore経由で他端末にもリアルタイム共有されます。
     Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";</strong> の部分だけ置き換えてください。
   </div>
 
@@ -194,13 +195,31 @@
     }
 
 
-    function makeVisitedIcon() {
+    function makeSharedIcon(status) {
+      const colors = {
+        met: "#1976d2",
+        revisit: "#2e7d32",
+        refuse: "#c62828"
+      };
+      const color = colors[status] || colors.met;
+
+      let inner = "";
+      if (status === "revisit") {
+        inner = `<path d="M10 17 C10 11,24 11,24 17 C24 23,10 23,10 17 Z"
+                       fill="none" stroke="${color}" stroke-width="3"/>`;
+      } else if (status === "refuse") {
+        inner = `<path d="M10 10 L24 24 M24 10 L10 24"
+                       stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
+      } else {
+        inner = `<circle cx="17" cy="17" r="5" fill="${color}"/>`;
+      }
+
       const svg =
         `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
-          <circle cx="17" cy="17" r="13" fill="#ffffff" stroke="#2e7d32" stroke-width="4"/>
-          <path d="M10 17 L15 22 L25 11" fill="none" stroke="#2e7d32" stroke-width="4"
-                stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="17" cy="17" r="13" fill="#ffffff" stroke="${color}" stroke-width="4"/>
+          ${inner}
         </svg>`;
+
       return {
         url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
         scaledSize: new google.maps.Size(34, 34),
@@ -250,6 +269,7 @@
             properties: {
               docId: d.id,
               areaNo: String(data.areaNo || ""),
+              status: String(data.status || "met"),
               createdBy: data.createdBy || ""
             }
           });
@@ -260,13 +280,14 @@
       });
     }
 
-    async function addVisitedHome(latLng) {
+    async function addSharedMark(latLng, status) {
       if (!currentUser || !activeAreaNo) return;
       try {
         await addDoc(collection(db, "visitedHomes"), {
           areaNo: String(activeAreaNo),
           lat: latLng.lat(),
           lng: latLng.lng(),
+          status: String(status || "met"),
           createdAt: serverTimestamp(),
           createdBy: currentUser.uid
         });
@@ -279,7 +300,7 @@
       }
     }
 
-    async function removeVisitedHome(docId) {
+    async function removeSharedMark(docId) {
       if (!currentUser || !docId) return;
       try {
         await deleteDoc(doc(db, "visitedHomes", docId));
@@ -292,7 +313,7 @@
 
     async function clearActiveAreaVisited() {
       if (!currentUser || !activeAreaNo) return;
-      if (!confirm(`区域${activeAreaNo}の「会えた家」の印をすべて削除しますか？`)) return;
+      if (!confirm(`区域${activeAreaNo}の共有印をすべて削除しますか？`)) return;
       try {
         const q = query(collection(db, "visitedHomes"), where("areaNo", "==", String(activeAreaNo)));
         const snap = await getDocs(q);
@@ -307,7 +328,7 @@
       const btn = document.getElementById("addModeBtn");
       if (!btn) return;
       btn.classList.toggle("active", addMode);
-      btn.textContent = addMode ? "追加モード中：家の位置をタップ" : "会えた家を追加";
+      btn.textContent = addMode ? "追加モード中：場所をタップ" : "記録を追加";
     }
 
     function initMap() {
@@ -351,8 +372,9 @@
         icon: makeNoVisitIcon()
       });
 
-      visitedLayer.setStyle({
-        icon: makeVisitedIcon()
+      visitedLayer.setStyle(feature => {
+        const status = String(feature.getProperty("status") || "met");
+        return { icon: makeSharedIcon(status) };
       });
 
       areaLayer.setMap(map);
@@ -394,21 +416,41 @@
         if (!addMode || !activeAreaNo || !e.latLng) return;
 
         const wrap = document.createElement("div");
-        const text = document.createElement("div");
-        text.textContent = `区域${activeAreaNo}：この場所を「会えた家」として共有しますか？`;
-        text.style.marginBottom = "8px";
 
-        const addBtn = document.createElement("button");
-        addBtn.type = "button";
-        addBtn.textContent = "会えた";
-        addBtn.style.padding = "7px 12px";
-        addBtn.addEventListener("click", async () => {
-          infoWindow.close();
-          await addVisitedHome(e.latLng);
+        const text = document.createElement("div");
+        text.textContent = `区域${activeAreaNo}：この場所の記録を選んでください`;
+        text.style.marginBottom = "10px";
+        wrap.appendChild(text);
+
+        const choices = [
+          { label: "会えた", status: "met", color: "#1976d2" },
+          { label: "再訪問", status: "revisit", color: "#2e7d32" },
+          { label: "訪問拒否", status: "refuse", color: "#c62828" }
+        ];
+
+        const row = document.createElement("div");
+        row.style.display = "flex";
+        row.style.flexWrap = "wrap";
+        row.style.gap = "7px";
+
+        choices.forEach(choice => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.textContent = choice.label;
+          btn.style.padding = "8px 12px";
+          btn.style.border = `2px solid ${choice.color}`;
+          btn.style.color = choice.color;
+          btn.style.background = "#fff";
+          btn.style.borderRadius = "8px";
+          btn.style.fontWeight = "700";
+          btn.addEventListener("click", async () => {
+            infoWindow.close();
+            await addSharedMark(e.latLng, choice.status);
+          });
+          row.appendChild(btn);
         });
 
-        wrap.appendChild(text);
-        wrap.appendChild(addBtn);
+        wrap.appendChild(row);
         infoWindow.setContent(wrap);
         infoWindow.setPosition(e.latLng);
         infoWindow.open({ map });
@@ -417,17 +459,24 @@
       visitedLayer.addListener("click", e => {
         const docId = e.feature.getProperty("docId");
         const areaNo = e.feature.getProperty("areaNo");
+        const status = String(e.feature.getProperty("status") || "met");
+
+        const labels = {
+          met: "会えた",
+          revisit: "再訪問",
+          refuse: "訪問拒否"
+        };
 
         const wrap = document.createElement("div");
         const text = document.createElement("div");
-        text.textContent = `区域${areaNo}：「会えた家」の印`;
+        text.textContent = `区域${areaNo}：${labels[status] || "会えた"}`;
         text.style.marginBottom = "8px";
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
         delBtn.textContent = "この印を消す";
         delBtn.style.padding = "7px 12px";
-        delBtn.addEventListener("click", () => removeVisitedHome(docId));
+        delBtn.addEventListener("click", () => removeSharedMark(docId));
 
         wrap.appendChild(text);
         wrap.appendChild(delBtn);
