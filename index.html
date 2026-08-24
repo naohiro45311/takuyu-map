@@ -43,6 +43,12 @@
     .area-buttons button:hover {
       background: #f0f0f0;
     }
+    .area-buttons button.selected {
+      background: #1976d2;
+      color: #ffffff;
+      border-color: #1976d2;
+      font-weight: 700;
+    }
     .toggles {
       display: flex;
       flex-wrap: wrap;
@@ -118,8 +124,9 @@
 
   <div id="map"></div>
   <div class="note">
-    ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
-    ④「会えた（青）」「再訪問（緑）」「訪問拒否（赤）」から選択します。
+    選択中の区域ボタンは青色で表示されます。①区域番号を選択 → ②「記録を追加」→
+    ③「追加モード中」になったら家の位置をタップ →
+    ④「会えた（青✓）」「再訪問（緑✓）」「訪問拒否（赤✓）」から選択します。
     登録した印はFirestore経由で他端末にもリアルタイム共有されます。
     Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";</strong> の部分だけ置き換えてください。
   </div>
@@ -203,21 +210,12 @@
       };
       const color = colors[status] || colors.met;
 
-      let inner = "";
-      if (status === "revisit") {
-        inner = `<path d="M10 17 C10 11,24 11,24 17 C24 23,10 23,10 17 Z"
-                       fill="none" stroke="${color}" stroke-width="3"/>`;
-      } else if (status === "refuse") {
-        inner = `<path d="M10 10 L24 24 M24 10 L10 24"
-                       stroke="${color}" stroke-width="4" stroke-linecap="round"/>`;
-      } else {
-        inner = `<circle cx="17" cy="17" r="5" fill="${color}"/>`;
-      }
-
       const svg =
         `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
           <circle cx="17" cy="17" r="13" fill="#ffffff" stroke="${color}" stroke-width="4"/>
-          ${inner}
+          <path d="M9.5 17 L14.5 22 L24.5 11.5"
+                fill="none" stroke="${color}" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round"/>
         </svg>`;
 
       return {
@@ -494,12 +492,17 @@
       numbers.forEach(no => {
         const btn = document.createElement("button");
         btn.textContent = "区域 " + no;
+        btn.dataset.areaNo = String(no);
         btn.addEventListener("click", () => focusArea(no));
         container.appendChild(btn);
       });
     }
 
     function focusArea(areaNo) {
+      document.querySelectorAll("#areaButtons button").forEach(btn => {
+        btn.classList.toggle("selected", btn.dataset.areaNo === String(areaNo));
+      });
+
       activeAreaNo = String(areaNo);
       document.getElementById("clearAreaBtn").disabled = !currentUser;
       addMode = false;
