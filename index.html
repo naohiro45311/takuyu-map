@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓勇会衆 区域地図 試用版</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #222;
+    }
+    header {
+      padding: 12px 16px;
+      background: white;
+      border-bottom: 1px solid #ddd;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .controls {
+      padding: 10px 12px;
+      background: white;
+      border-bottom: 1px solid #ddd;
+    }
+    .area-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .area-buttons button {
+      border: 1px solid #bbb;
+      background: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .area-buttons button:hover {
+      background: #f0f0f0;
+    }
+    .toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 15px;
+    }
+    .toggles label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .shared-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      margin-top: 10px;
+    }
+    .shared-controls button {
+      border: 1px solid #bbb;
+      background: #fff;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 15px;
+      cursor: pointer;
+    }
+    .shared-controls button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .shared-controls button.active {
+      background: #e8f5e9;
+      border-color: #2e7d32;
+      font-weight: 700;
+    }
+    #firebaseStatus {
+      font-size: 13px;
+      color: #555;
+    }
+    #map {
+      width: 100%;
+      height: calc(100vh - 205px);
+      min-height: 500px;
+    }
+    .note {
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #555;
+      background: #fff8e6;
+      border-top: 1px solid #eee;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>拓勇会衆 区域地図（試用版・やや拡大表示）</h1>
+  </header>
+
+  <div class="controls">
+    <div class="area-buttons" id="areaButtons"></div>
+    <div class="toggles">
+      <label><input type="checkbox" id="toggleAreas" checked> 区域境界</label>
+      <label><input type="checkbox" id="toggleNumbers" checked> 区域番号</label>
+      <label><input type="checkbox" id="toggleNoVisit" checked> 訪問しない場所</label>
+      <label><input type="checkbox" id="toggleVisited" checked> 会えた家</label>
+    </div>
+    <div class="shared-controls">
+      <button type="button" id="addModeBtn" disabled>会えた家を追加</button>
+      <button type="button" id="clearAreaBtn" disabled>この区域の会えた印を全部消す</button>
+      <span id="firebaseStatus">Firebaseに接続しています…</span>
+    </div>
+  </div>
+
+  <div id="map"></div>
+  <div class="note">
+    ①区域番号を選択 → ②「会えた家を追加」→ ③ボタンが「追加モード中」になったら家の位置をタップ →
+    ④表示された「会えた」を押します。✓印はFirestore経由で他端末にもリアルタイム共有されます。
+    Google MapsのAPIキーは <strong>YOUR_DEMO_KEY</strong> をデモキーに置き換えてください。
+  </div>
+
+  <script type="module">
+    const AREAS = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "79", "layer": "区域", "area_no": "79"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6765162, 42.6815281], [141.6779485, 42.680347], [141.6791958, 42.6812757], [141.6806388, 42.682581], [141.6814133, 42.6833935], [141.6793156, 42.684455], [141.6779235, 42.6829407], [141.6765162, 42.6815281]]]}}, {"type": "Feature", "properties": {"name": "80", "layer": "区域", "area_no": "80"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6779485, 42.680347], [141.6798433, 42.6789412], [141.6835883, 42.6823091], [141.6814133, 42.6833935], [141.6806388, 42.682581], [141.6791958, 42.6812757], [141.6779485, 42.680347]]]}}, {"type": "Feature", "properties": {"name": "81", "layer": "区域", "area_no": "81"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6798433, 42.6789412], [141.6812322, 42.6779206], [141.6829409, 42.6764777], [141.6847863, 42.6779487], [141.6843166, 42.6782617], [141.6835495, 42.6776555], [141.6810609, 42.6793591], [141.6817586, 42.6799997], [141.6813462, 42.6802922], [141.6798433, 42.6789412]]]}}, {"type": "Feature", "properties": {"name": "82", "layer": "区域", "area_no": "82"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6857156, 42.6788296], [141.6839451, 42.6800279], [141.6829148, 42.6792298], [141.6817586, 42.6799997], [141.6810609, 42.6793591], [141.6835495, 42.6776555], [141.6843166, 42.6782617], [141.6847863, 42.6779487], [141.6857156, 42.6788296]]]}}, {"type": "Feature", "properties": {"name": "83", "layer": "区域", "area_no": "83"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6872289, 42.6804846], [141.6835883, 42.6823091], [141.6813462, 42.6802922], [141.681729, 42.6800192], [141.6821225, 42.6797571], [141.6829148, 42.6792298], [141.6839447, 42.6800264], [141.6857156, 42.6788296], [141.6872289, 42.6804846]]]}}, {"type": "Feature", "properties": {"name": "84", "layer": "区域", "area_no": "84"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6829409, 42.6764777], [141.6840384, 42.6750059], [141.6849185, 42.6735907], [141.6865054, 42.674378], [141.6859666, 42.6747947], [141.6867443, 42.675406], [141.6855639, 42.6762403], [141.6863487, 42.6768819], [141.6847863, 42.6779487], [141.6829409, 42.6764777]]]}}, {"type": "Feature", "properties": {"name": "85", "layer": "区域", "area_no": "85"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6914831, 42.6783559], [141.6872289, 42.6804846], [141.6857156, 42.6788296], [141.6847863, 42.6779487], [141.6863487, 42.6768819], [141.6855639, 42.6762403], [141.6867443, 42.675406], [141.6859666, 42.6747947], [141.6865054, 42.674378], [141.6914831, 42.6783559]]]}}]};
+    const AREA_NUMBERS = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "79", "layer": "区域番号", "area_no": "79"}, "geometry": {"type": "Point", "coordinates": [141.6788911, 42.6824206]}}, {"type": "Feature", "properties": {"name": "80", "layer": "区域番号", "area_no": "80"}, "geometry": {"type": "Point", "coordinates": [141.6809349, 42.6814405]}}, {"type": "Feature", "properties": {"name": "81", "layer": "区域番号", "area_no": "81"}, "geometry": {"type": "Point", "coordinates": [141.6817637, 42.678327]}}, {"type": "Feature", "properties": {"name": "82", "layer": "区域番号", "area_no": "82"}, "geometry": {"type": "Point", "coordinates": [141.6833698, 42.6789241]}}, {"type": "Feature", "properties": {"name": "83", "layer": "区域番号", "area_no": "83"}, "geometry": {"type": "Point", "coordinates": [141.6843888, 42.6805735]}}, {"type": "Feature", "properties": {"name": "84", "layer": "区域番号", "area_no": "84"}, "geometry": {"type": "Point", "coordinates": [141.6849276, 42.675952]}}, {"type": "Feature", "properties": {"name": "85", "layer": "区域番号", "area_no": "85"}, "geometry": {"type": "Point", "coordinates": [141.6878324, 42.6778791]}}]};
+    const NO_VISIT = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6814669, 42.6799743]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.683903, 42.6778268]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6829364, 42.6777238]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6847693, 42.6745184]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6849638, 42.6752182]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.684371, 42.6760445]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6845176, 42.6772654]}}]};
+    const AREA_CENTERS = {"79": {"lat": 42.6824206, "lng": 141.6788911}, "80": {"lat": 42.6814405, "lng": 141.6809349}, "81": {"lat": 42.678327, "lng": 141.6817637}, "82": {"lat": 42.6789241, "lng": 141.6833698}, "83": {"lat": 42.6805735, "lng": 141.6843888}, "84": {"lat": 42.675952, "lng": 141.6849276}, "85": {"lat": 42.6778791, "lng": 141.6878324}};
+
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import {
+      getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc,
+      serverTimestamp, query, where, getDocs
+    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      "apiKey": "AIzaSyAsWJ8uw9RzUQ3nt39Y4Jvru7l838IJ1E4",
+      "authDomain": "takuyu-map.firebaseapp.com",
+      "projectId": "takuyu-map",
+      "storageBucket": "takuyu-map.firebasestorage.app",
+      "messagingSenderId": "1045163180802",
+      "appId": "1:1045163180802:web:f36a869d9b73a03bfb781b"
+};
+    const firebaseApp = initializeApp(firebaseConfig);
+    const auth = getAuth(firebaseApp);
+    const db = getFirestore(firebaseApp);
+
+
+    let map;
+    let areaLayer;
+    let numberLayer;
+    let noVisitLayer;
+    let visitedLayer;
+    let infoWindow;
+    let activeAreaNo = null;
+    let addMode = false;
+    let currentUser = null;
+    let unsubscribeVisited = null;
+
+
+    function makeNumberIcon(text) {
+      const safe = String(text).replace(/[&<>"']/g, "");
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
+          <circle cx="22" cy="22" r="19" fill="#ffffff" stroke="#1565c0" stroke-width="4"/>
+          <text x="22" y="27" text-anchor="middle"
+                font-family="Arial, sans-serif" font-size="15" font-weight="700"
+                fill="#1565c0">${safe}</text>
+        </svg>`;
+      return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(44, 44),
+        anchor: new google.maps.Point(22, 22)
+      };
+    }
+
+    function makeNoVisitIcon() {
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+          <circle cx="17" cy="17" r="14" fill="#ffffff" stroke="#c62828" stroke-width="4"/>
+          <path d="M10 10 L24 24 M24 10 L10 24" stroke="#c62828" stroke-width="4" stroke-linecap="round"/>
+        </svg>`;
+      return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(34, 34),
+        anchor: new google.maps.Point(17, 17)
+      };
+    }
+
+
+    function makeVisitedIcon() {
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
+          <circle cx="17" cy="17" r="13" fill="#ffffff" stroke="#2e7d32" stroke-width="4"/>
+          <path d="M10 17 L15 22 L25 11" fill="none" stroke="#2e7d32" stroke-width="4"
+                stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>`;
+      return {
+        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
+        scaledSize: new google.maps.Size(34, 34),
+        anchor: new google.maps.Point(17, 17)
+      };
+    }
+
+    function setStatus(text) {
+      const el = document.getElementById("firebaseStatus");
+      if (el) el.textContent = text;
+    }
+
+    async function startFirebase() {
+      try {
+        await signInAnonymously(auth);
+        onAuthStateChanged(auth, user => {
+          currentUser = user || null;
+          if (currentUser) {
+            setStatus("共有機能：接続済み");
+            document.getElementById("addModeBtn").disabled = false;
+            document.getElementById("clearAreaBtn").disabled = !activeAreaNo;
+            subscribeVisitedHomes();
+          } else {
+            setStatus("共有機能：未接続");
+          }
+        });
+      } catch (err) {
+        console.error(err);
+        setStatus("Firebase接続エラー：" + (err.code || err.message));
+      }
+    }
+
+    function subscribeVisitedHomes() {
+      if (unsubscribeVisited) unsubscribeVisited();
+      unsubscribeVisited = onSnapshot(collection(db, "visitedHomes"), snapshot => {
+        if (!visitedLayer) return;
+        const existing = [];
+        visitedLayer.forEach(feature => existing.push(feature));
+        existing.forEach(feature => visitedLayer.remove(feature));
+
+        snapshot.forEach(d => {
+          const data = d.data();
+          if (typeof data.lat !== "number" || typeof data.lng !== "number") return;
+          visitedLayer.add({
+            id: d.id,
+            geometry: new google.maps.Data.Point({ lat: data.lat, lng: data.lng }),
+            properties: {
+              docId: d.id,
+              areaNo: String(data.areaNo || ""),
+              createdBy: data.createdBy || ""
+            }
+          });
+        });
+      }, err => {
+        console.error(err);
+        setStatus("共有データ読込エラー：" + (err.code || err.message));
+      });
+    }
+
+    async function addVisitedHome(latLng) {
+      if (!currentUser || !activeAreaNo) return;
+      try {
+        await addDoc(collection(db, "visitedHomes"), {
+          areaNo: String(activeAreaNo),
+          lat: latLng.lat(),
+          lng: latLng.lng(),
+          createdAt: serverTimestamp(),
+          createdBy: currentUser.uid
+        });
+        addMode = false;
+        updateAddModeButton();
+        if (map) map.setOptions({ draggableCursor: null });
+      } catch (err) {
+        console.error(err);
+        alert("登録できませんでした：" + (err.code || err.message));
+      }
+    }
+
+    async function removeVisitedHome(docId) {
+      if (!currentUser || !docId) return;
+      try {
+        await deleteDoc(doc(db, "visitedHomes", docId));
+        infoWindow.close();
+      } catch (err) {
+        console.error(err);
+        alert("削除できませんでした：" + (err.code || err.message));
+      }
+    }
+
+    async function clearActiveAreaVisited() {
+      if (!currentUser || !activeAreaNo) return;
+      if (!confirm(`区域${activeAreaNo}の「会えた家」の印をすべて削除しますか？`)) return;
+      try {
+        const q = query(collection(db, "visitedHomes"), where("areaNo", "==", String(activeAreaNo)));
+        const snap = await getDocs(q);
+        await Promise.all(snap.docs.map(d => deleteDoc(doc(db, "visitedHomes", d.id))));
+      } catch (err) {
+        console.error(err);
+        alert("一括削除できませんでした：" + (err.code || err.message));
+      }
+    }
+
+    function updateAddModeButton() {
+      const btn = document.getElementById("addModeBtn");
+      if (!btn) return;
+      btn.classList.toggle("active", addMode);
+      btn.textContent = addMode ? "追加モード中：家の位置をタップ" : "会えた家を追加";
+    }
+
+    function initMap() {
+      const firstCenter = Object.values(AREA_CENTERS)[0] || { lat: 42.65, lng: 141.65 };
+
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: firstCenter,
+        zoom: 15,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true
+      });
+
+      areaLayer = new google.maps.Data();
+      numberLayer = new google.maps.Data();
+      noVisitLayer = new google.maps.Data();
+      visitedLayer = new google.maps.Data();
+
+      areaLayer.addGeoJson(AREAS);
+      numberLayer.addGeoJson(AREA_NUMBERS);
+      noVisitLayer.addGeoJson(NO_VISIT);
+
+      areaLayer.setStyle({
+        strokeColor: "#333333",
+        strokeWeight: 4,
+        strokeOpacity: 0.95,
+        fillColor: "#ffffff",
+        fillOpacity: 0.02,
+        clickable: false
+      });
+
+      numberLayer.setStyle(feature => {
+        const label = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        return {
+          icon: makeNumberIcon(label),
+          clickable: false
+        };
+      });
+
+      noVisitLayer.setStyle({
+        icon: makeNoVisitIcon()
+      });
+
+      visitedLayer.setStyle({
+        icon: makeVisitedIcon()
+      });
+
+      areaLayer.setMap(map);
+      numberLayer.setMap(map);
+      noVisitLayer.setMap(map);
+      visitedLayer.setMap(map);
+      infoWindow = new google.maps.InfoWindow();
+
+      makeAreaButtons();
+      fitAllAreas();
+
+      document.getElementById("toggleAreas").addEventListener("change", e => {
+        areaLayer.setMap(e.target.checked ? map : null);
+      });
+      document.getElementById("toggleNumbers").addEventListener("change", e => {
+        numberLayer.setMap(e.target.checked ? map : null);
+      });
+      document.getElementById("toggleNoVisit").addEventListener("change", e => {
+        noVisitLayer.setMap(e.target.checked ? map : null);
+      });
+
+      document.getElementById("toggleVisited").addEventListener("change", e => {
+        visitedLayer.setMap(e.target.checked ? map : null);
+      });
+
+      document.getElementById("addModeBtn").addEventListener("click", () => {
+        if (!activeAreaNo) {
+          alert("先に区域番号を選択してください。");
+          return;
+        }
+        addMode = !addMode;
+        updateAddModeButton();
+        map.setOptions({ draggableCursor: addMode ? "crosshair" : null });
+      });
+
+      document.getElementById("clearAreaBtn").addEventListener("click", clearActiveAreaVisited);
+
+      map.addListener("click", e => {
+        if (!addMode || !activeAreaNo || !e.latLng) return;
+
+        const wrap = document.createElement("div");
+        const text = document.createElement("div");
+        text.textContent = `区域${activeAreaNo}：この場所を「会えた家」として共有しますか？`;
+        text.style.marginBottom = "8px";
+
+        const addBtn = document.createElement("button");
+        addBtn.type = "button";
+        addBtn.textContent = "会えた";
+        addBtn.style.padding = "7px 12px";
+        addBtn.addEventListener("click", async () => {
+          infoWindow.close();
+          await addVisitedHome(e.latLng);
+        });
+
+        wrap.appendChild(text);
+        wrap.appendChild(addBtn);
+        infoWindow.setContent(wrap);
+        infoWindow.setPosition(e.latLng);
+        infoWindow.open({ map });
+      });
+
+      visitedLayer.addListener("click", e => {
+        const docId = e.feature.getProperty("docId");
+        const areaNo = e.feature.getProperty("areaNo");
+
+        const wrap = document.createElement("div");
+        const text = document.createElement("div");
+        text.textContent = `区域${areaNo}：「会えた家」の印`;
+        text.style.marginBottom = "8px";
+
+        const delBtn = document.createElement("button");
+        delBtn.type = "button";
+        delBtn.textContent = "この印を消す";
+        delBtn.style.padding = "7px 12px";
+        delBtn.addEventListener("click", () => removeVisitedHome(docId));
+
+        wrap.appendChild(text);
+        wrap.appendChild(delBtn);
+        infoWindow.setContent(wrap);
+        infoWindow.setPosition(e.latLng);
+        infoWindow.open({ map });
+      });
+
+      startFirebase();
+    }
+
+    function makeAreaButtons() {
+      const container = document.getElementById("areaButtons");
+      const numbers = Object.keys(AREA_CENTERS).sort((a,b) => Number(a)-Number(b));
+      numbers.forEach(no => {
+        const btn = document.createElement("button");
+        btn.textContent = "区域 " + no;
+        btn.addEventListener("click", () => focusArea(no));
+        container.appendChild(btn);
+      });
+    }
+
+    function focusArea(areaNo) {
+      activeAreaNo = String(areaNo);
+      document.getElementById("clearAreaBtn").disabled = !currentUser;
+      addMode = false;
+      updateAddModeButton();
+      if (currentUser) setStatus(`共有機能：接続済み／区域${activeAreaNo}を選択中`);
+      const bounds = new google.maps.LatLngBounds();
+      let found = false;
+
+      areaLayer.forEach(feature => {
+        const no = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        if (no !== String(areaNo)) return;
+
+        feature.getGeometry().forEachLatLng(latLng => {
+          bounds.extend(latLng);
+          found = true;
+        });
+      });
+
+      if (found) {
+        map.fitBounds(bounds, 45);
+        google.maps.event.addListenerOnce(map, "idle", () => {
+          const currentZoom = map.getZoom() || 17;
+          map.setZoom(Math.min(currentZoom + 1, 18));
+        });
+      } else if (AREA_CENTERS[areaNo]) {
+        map.setCenter(AREA_CENTERS[areaNo]);
+        map.setZoom(18);
+      }
+    }
+
+    function fitAllAreas() {
+      const bounds = new google.maps.LatLngBounds();
+      let found = false;
+      areaLayer.forEach(feature => {
+        feature.getGeometry().forEachLatLng(latLng => {
+          bounds.extend(latLng);
+          found = true;
+        });
+      });
+      if (found) map.fitBounds(bounds, 40);
+    }
+
+    window.initMap = initMap;
+  </script>
+
+  <script async
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0&callback=initMap">
+  </script>
+</body>
+</html>
