@@ -120,7 +120,7 @@
   <div class="note">
     ①区域番号を選択 → ②「会えた家を追加」→ ③ボタンが「追加モード中」になったら家の位置をタップ →
     ④表示された「会えた」を押します。✓印はFirestore経由で他端末にもリアルタイム共有されます。
-    Google MapsのAPIキーは <strong>YOUR_DEMO_KEY</strong> をデモキーに置き換えてください。
+    Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";</strong> の部分だけ置き換えてください。
   </div>
 
   <script type="module">
@@ -147,6 +147,9 @@
     const firebaseApp = initializeApp(firebaseConfig);
     const auth = getAuth(firebaseApp);
     const db = getFirestore(firebaseApp);
+
+    // ここだけを取得したGoogle Maps Demo Keyに置き換えてください
+    const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";
 
 
     let map;
@@ -491,10 +494,32 @@
     }
 
     window.initMap = initMap;
-  </script>
 
-  <script async
-    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0&callback=initMap">
+    function loadGoogleMaps() {
+      if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "YOUR_DEMO_KEY") {
+        const mapEl = document.getElementById("map");
+        mapEl.innerHTML =
+          '<div style="padding:24px;font-size:16px;">Google Maps Demo KeyをHTML内の <strong>GOOGLE_MAPS_API_KEY</strong> に設定してください。</div>';
+        setStatus("Google Maps Demo Keyが未設定です");
+        return;
+      }
+
+      const script = document.createElement("script");
+      script.src =
+        "https://maps.googleapis.com/maps/api/js?key=" +
+        encodeURIComponent(GOOGLE_MAPS_API_KEY) +
+        "&callback=initMap";
+      script.async = true;
+      script.onerror = () => {
+        setStatus("Google Mapsの読み込みに失敗しました");
+        const mapEl = document.getElementById("map");
+        mapEl.innerHTML =
+          '<div style="padding:24px;font-size:16px;">Google Mapsを読み込めませんでした。Demo Keyやブラウザの開発者コンソールを確認してください。</div>';
+      };
+      document.head.appendChild(script);
+    }
+
+    loadGoogleMaps();
   </script>
 </body>
 </html>
