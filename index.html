@@ -128,7 +128,7 @@
     ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
     ④「会えた（青✓）」「再訪問（緑✓）」「訪問拒否（赤✓）」から選択します。
     登録した印はFirestore経由で他端末にもリアルタイム共有されます。
-    Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";</strong> の部分だけ置き換えてください。
+    Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";</strong> の部分だけ置き換えてください。
   </div>
 
   <script type="module">
@@ -157,7 +157,7 @@
     const db = getFirestore(firebaseApp);
 
     // ここだけを取得したGoogle Maps Demo Keyに置き換えてください
-    const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";
+    const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";
 
 
     let map;
