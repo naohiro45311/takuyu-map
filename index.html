@@ -124,11 +124,11 @@
 
   <div id="map"></div>
   <div class="note">
-    選択中の区域ボタンは青色で表示されます。①区域番号を選択 → ②「記録を追加」→
-    ③「追加モード中」になったら家の位置をタップ →
+    選択中の区域ボタンは青色になり、その区域内も薄い青で表示されます。
+    ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
     ④「会えた（青✓）」「再訪問（緑✓）」「訪問拒否（赤✓）」から選択します。
     登録した印はFirestore経由で他端末にもリアルタイム共有されます。
-    Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";</strong> の部分だけ置き換えてください。
+    Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";</strong> の部分だけ置き換えてください。
   </div>
 
   <script type="module">
@@ -157,7 +157,7 @@
     const db = getFirestore(firebaseApp);
 
     // ここだけを取得したGoogle Maps Demo Keyに置き換えてください
-    const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";
+    const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";
 
 
     let map;
@@ -349,13 +349,17 @@
       numberLayer.addGeoJson(AREA_NUMBERS);
       noVisitLayer.addGeoJson(NO_VISIT);
 
-      areaLayer.setStyle({
-        strokeColor: "#333333",
-        strokeWeight: 4,
-        strokeOpacity: 0.95,
-        fillColor: "#ffffff",
-        fillOpacity: 0.02,
-        clickable: false
+      areaLayer.setStyle(feature => {
+        const no = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        const selected = activeAreaNo && no === String(activeAreaNo);
+        return {
+          strokeColor: selected ? "#1976d2" : "#333333",
+          strokeWeight: selected ? 5 : 4,
+          strokeOpacity: 0.95,
+          fillColor: selected ? "#1976d2" : "#ffffff",
+          fillOpacity: selected ? 0.14 : 0.02,
+          clickable: false
+        };
       });
 
       numberLayer.setStyle(feature => {
@@ -504,6 +508,21 @@
       });
 
       activeAreaNo = String(areaNo);
+
+      // 選択した区域だけ薄く色付けする
+      areaLayer.setStyle(feature => {
+        const no = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        const selected = no === String(activeAreaNo);
+        return {
+          strokeColor: selected ? "#1976d2" : "#333333",
+          strokeWeight: selected ? 5 : 4,
+          strokeOpacity: 0.95,
+          fillColor: selected ? "#1976d2" : "#ffffff",
+          fillOpacity: selected ? 0.14 : 0.02,
+          clickable: false
+        };
+      });
+
       document.getElementById("clearAreaBtn").disabled = !currentUser;
       addMode = false;
       updateAddModeButton();
