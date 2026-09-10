@@ -28,21 +28,24 @@
     }
     .area-buttons {
       display: flex;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
       gap: 8px;
       margin-bottom: 10px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+      scrollbar-width: thin;
     }
     .area-buttons button {
+      flex: 0 0 auto;
       border: 1px solid #bbb;
       background: #fff;
       padding: 8px 12px;
       border-radius: 8px;
       font-size: 16px;
       cursor: pointer;
+      white-space: nowrap;
     }
-    .area-buttons button:hover {
-      background: #f0f0f0;
-    }
+    .area-buttons button:hover { background: #f0f0f0; }
     .area-buttons button.selected {
       background: #1976d2;
       color: #ffffff;
@@ -118,31 +121,30 @@
     <div class="shared-controls">
       <button type="button" id="addModeBtn" disabled>記録を追加</button>
       <button type="button" id="clearAreaBtn" disabled>この区域の共有印を全部消す</button>
-      <span id="firebaseStatus">Firebaseに接続しています…</span>
+      <span id="firebaseStatus">区域データを読み込んでいます…</span>
     </div>
   </div>
 
   <div id="map"></div>
+
   <div class="note">
     選択中の区域ボタンは青色になり、その区域内も薄い青で表示されます。
     ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
     ④「会えた（青✓）」「再訪問（緑✓）」「訪問拒否（赤✓）」から選択します。
     登録した印はFirestore経由で他端末にもリアルタイム共有されます。
-    Google MapsのDemo KeyはHTML内の <strong>const GOOGLE_MAPS_API_KEY = "YOUR_DEMO_KEY";</strong> の部分だけ置き換えてください。
+    区域境界は <strong>takuyu_areas.geojson</strong> から自動で読み込みます。
   </div>
 
   <script type="module">
-    const AREAS = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "79", "layer": "区域", "area_no": "79"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6765162, 42.6815281], [141.6779485, 42.680347], [141.6791958, 42.6812757], [141.6806388, 42.682581], [141.6814133, 42.6833935], [141.6793156, 42.684455], [141.6779235, 42.6829407], [141.6765162, 42.6815281]]]}}, {"type": "Feature", "properties": {"name": "80", "layer": "区域", "area_no": "80"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6779485, 42.680347], [141.6798433, 42.6789412], [141.6835883, 42.6823091], [141.6814133, 42.6833935], [141.6806388, 42.682581], [141.6791958, 42.6812757], [141.6779485, 42.680347]]]}}, {"type": "Feature", "properties": {"name": "81", "layer": "区域", "area_no": "81"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6798433, 42.6789412], [141.6812322, 42.6779206], [141.6829409, 42.6764777], [141.6847863, 42.6779487], [141.6843166, 42.6782617], [141.6835495, 42.6776555], [141.6810609, 42.6793591], [141.6817586, 42.6799997], [141.6813462, 42.6802922], [141.6798433, 42.6789412]]]}}, {"type": "Feature", "properties": {"name": "82", "layer": "区域", "area_no": "82"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6857156, 42.6788296], [141.6839451, 42.6800279], [141.6829148, 42.6792298], [141.6817586, 42.6799997], [141.6810609, 42.6793591], [141.6835495, 42.6776555], [141.6843166, 42.6782617], [141.6847863, 42.6779487], [141.6857156, 42.6788296]]]}}, {"type": "Feature", "properties": {"name": "83", "layer": "区域", "area_no": "83"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6872289, 42.6804846], [141.6835883, 42.6823091], [141.6813462, 42.6802922], [141.681729, 42.6800192], [141.6821225, 42.6797571], [141.6829148, 42.6792298], [141.6839447, 42.6800264], [141.6857156, 42.6788296], [141.6872289, 42.6804846]]]}}, {"type": "Feature", "properties": {"name": "84", "layer": "区域", "area_no": "84"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6829409, 42.6764777], [141.6840384, 42.6750059], [141.6849185, 42.6735907], [141.6865054, 42.674378], [141.6859666, 42.6747947], [141.6867443, 42.675406], [141.6855639, 42.6762403], [141.6863487, 42.6768819], [141.6847863, 42.6779487], [141.6829409, 42.6764777]]]}}, {"type": "Feature", "properties": {"name": "85", "layer": "区域", "area_no": "85"}, "geometry": {"type": "Polygon", "coordinates": [[[141.6914831, 42.6783559], [141.6872289, 42.6804846], [141.6857156, 42.6788296], [141.6847863, 42.6779487], [141.6863487, 42.6768819], [141.6855639, 42.6762403], [141.6867443, 42.675406], [141.6859666, 42.6747947], [141.6865054, 42.674378], [141.6914831, 42.6783559]]]}}]};
-    const AREA_NUMBERS = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "79", "layer": "区域番号", "area_no": "79"}, "geometry": {"type": "Point", "coordinates": [141.6788911, 42.6824206]}}, {"type": "Feature", "properties": {"name": "80", "layer": "区域番号", "area_no": "80"}, "geometry": {"type": "Point", "coordinates": [141.6809349, 42.6814405]}}, {"type": "Feature", "properties": {"name": "81", "layer": "区域番号", "area_no": "81"}, "geometry": {"type": "Point", "coordinates": [141.6817637, 42.678327]}}, {"type": "Feature", "properties": {"name": "82", "layer": "区域番号", "area_no": "82"}, "geometry": {"type": "Point", "coordinates": [141.6833698, 42.6789241]}}, {"type": "Feature", "properties": {"name": "83", "layer": "区域番号", "area_no": "83"}, "geometry": {"type": "Point", "coordinates": [141.6843888, 42.6805735]}}, {"type": "Feature", "properties": {"name": "84", "layer": "区域番号", "area_no": "84"}, "geometry": {"type": "Point", "coordinates": [141.6849276, 42.675952]}}, {"type": "Feature", "properties": {"name": "85", "layer": "区域番号", "area_no": "85"}, "geometry": {"type": "Point", "coordinates": [141.6878324, 42.6778791]}}]};
-    const NO_VISIT = {"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6814669, 42.6799743]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.683903, 42.6778268]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6829364, 42.6777238]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6847693, 42.6745184]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6849638, 42.6752182]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.684371, 42.6760445]}}, {"type": "Feature", "properties": {"name": "拒否", "layer": "訪問拒否", "type": "no_visit"}, "geometry": {"type": "Point", "coordinates": [141.6845176, 42.6772654]}}]};
-    const AREA_CENTERS = {"79": {"lat": 42.6824206, "lng": 141.6788911}, "80": {"lat": 42.6814405, "lng": 141.6809349}, "81": {"lat": 42.678327, "lng": 141.6817637}, "82": {"lat": 42.6789241, "lng": 141.6833698}, "83": {"lat": 42.6805735, "lng": 141.6843888}, "84": {"lat": 42.675952, "lng": 141.6849276}, "85": {"lat": 42.6778791, "lng": 141.6878324}};
-
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
     import {
       getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc,
       serverTimestamp, query, where, getDocs
     } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    // 既存の「訪問しない場所」はそのまま残しています。
+    const NO_VISIT = {"type":"FeatureCollection","features":[{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.6814669,42.6799743]}},{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.683903,42.6778268]}},{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.6829364,42.6777238]}},{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.6847693,42.6745184]}},{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.6849638,42.6752182]}},{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.684371,42.6760445]}},{"type":"Feature","properties":{"name":"拒否","layer":"訪問拒否","type":"no_visit"},"geometry":{"type":"Point","coordinates":[141.6845176,42.6772654]}}]};
 
     const firebaseConfig = {
       "apiKey": "AIzaSyAsWJ8uw9RzUQ3nt39Y4Jvru7l838IJ1E4",
@@ -151,14 +153,15 @@
       "storageBucket": "takuyu-map.firebasestorage.app",
       "messagingSenderId": "1045163180802",
       "appId": "1:1045163180802:web:f36a869d9b73a03bfb781b"
-};
+    };
+
     const firebaseApp = initializeApp(firebaseConfig);
     const auth = getAuth(firebaseApp);
     const db = getFirestore(firebaseApp);
 
-    // ここだけを取得したGoogle Maps Demo Keyに置き換えてください
+    // 現在使っているGoogle Maps APIキーをそのまま引き継いでいます。
     const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";
-
+    const AREAS_GEOJSON_URL = "./takuyu_areas.geojson";
 
     let map;
     let areaLayer;
@@ -170,7 +173,8 @@
     let addMode = false;
     let currentUser = null;
     let unsubscribeVisited = null;
-
+    const areaCenters = {};
+    const areaNumbers = [];
 
     function makeNumberIcon(text) {
       const safe = String(text).replace(/[&<>"']/g, "");
@@ -201,7 +205,6 @@
       };
     }
 
-
     function makeSharedIcon(status) {
       const colors = {
         met: "#1976d2",
@@ -209,7 +212,6 @@
         refuse: "#c62828"
       };
       const color = colors[status] || colors.met;
-
       const svg =
         `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
           <circle cx="17" cy="17" r="13" fill="#ffffff" stroke="${color}" stroke-width="4"/>
@@ -217,7 +219,6 @@
                 fill="none" stroke="${color}" stroke-width="4"
                 stroke-linecap="round" stroke-linejoin="round"/>
         </svg>`;
-
       return {
         url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
         scaledSize: new google.maps.Size(34, 34),
@@ -230,13 +231,66 @@
       if (el) el.textContent = text;
     }
 
+    function areaNoFromFeature(feature) {
+      return String(feature.getProperty("area_no") || feature.getProperty("name") || "").trim();
+    }
+
+    function naturalAreaSort(a, b) {
+      return String(a).localeCompare(String(b), "ja", { numeric: true, sensitivity: "base" });
+    }
+
+    async function loadAreaGeoJson() {
+      const response = await fetch(AREAS_GEOJSON_URL, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`区域GeoJSONを取得できませんでした（HTTP ${response.status}）`);
+      }
+      const geojson = await response.json();
+      if (!geojson || geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) {
+        throw new Error("takuyu_areas.geojson の形式を確認してください。FeatureCollectionではありません。");
+      }
+      areaLayer.addGeoJson(geojson);
+      buildAreaIndexAndNumbers();
+    }
+
+    function buildAreaIndexAndNumbers() {
+      const boundsByArea = new Map();
+
+      areaLayer.forEach(feature => {
+        const no = areaNoFromFeature(feature);
+        if (!no) return;
+
+        if (!boundsByArea.has(no)) {
+          boundsByArea.set(no, new google.maps.LatLngBounds());
+        }
+        const bounds = boundsByArea.get(no);
+        const geometry = feature.getGeometry();
+        if (!geometry) return;
+        geometry.forEachLatLng(latLng => bounds.extend(latLng));
+      });
+
+      areaNumbers.length = 0;
+      Object.keys(areaCenters).forEach(key => delete areaCenters[key]);
+
+      [...boundsByArea.keys()].sort(naturalAreaSort).forEach(no => {
+        const bounds = boundsByArea.get(no);
+        if (!bounds || bounds.isEmpty()) return;
+        const center = bounds.getCenter();
+        areaCenters[no] = { lat: center.lat(), lng: center.lng() };
+        areaNumbers.push(no);
+        numberLayer.add({
+          geometry: new google.maps.Data.Point(center),
+          properties: { area_no: no, name: no }
+        });
+      });
+    }
+
     async function startFirebase() {
       try {
         await signInAnonymously(auth);
         onAuthStateChanged(auth, user => {
           currentUser = user || null;
           if (currentUser) {
-            setStatus("共有機能：接続済み");
+            setStatus(`共有機能：接続済み／区域データ ${areaNumbers.length}件`);
             document.getElementById("addModeBtn").disabled = false;
             document.getElementById("clearAreaBtn").disabled = !activeAreaNo;
             subscribeVisitedHomes();
@@ -329,12 +383,10 @@
       btn.textContent = addMode ? "追加モード中：場所をタップ" : "記録を追加";
     }
 
-    function initMap() {
-      const firstCenter = Object.values(AREA_CENTERS)[0] || { lat: 42.65, lng: 141.65 };
-
+    async function initMap() {
       map = new google.maps.Map(document.getElementById("map"), {
-        center: firstCenter,
-        zoom: 15,
+        center: { lat: 42.65, lng: 141.65 },
+        zoom: 13,
         mapTypeControl: true,
         streetViewControl: false,
         fullscreenControl: true
@@ -344,13 +396,12 @@
       numberLayer = new google.maps.Data();
       noVisitLayer = new google.maps.Data();
       visitedLayer = new google.maps.Data();
+      infoWindow = new google.maps.InfoWindow();
 
-      areaLayer.addGeoJson(AREAS);
-      numberLayer.addGeoJson(AREA_NUMBERS);
       noVisitLayer.addGeoJson(NO_VISIT);
 
       areaLayer.setStyle(feature => {
-        const no = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        const no = areaNoFromFeature(feature);
         const selected = activeAreaNo && no === String(activeAreaNo);
         return {
           strokeColor: selected ? "#1976d2" : "#333333",
@@ -363,16 +414,14 @@
       });
 
       numberLayer.setStyle(feature => {
-        const label = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        const label = areaNoFromFeature(feature);
         return {
           icon: makeNumberIcon(label),
           clickable: false
         };
       });
 
-      noVisitLayer.setStyle({
-        icon: makeNoVisitIcon()
-      });
+      noVisitLayer.setStyle({ icon: makeNoVisitIcon() });
 
       visitedLayer.setStyle(feature => {
         const status = String(feature.getProperty("status") || "met");
@@ -383,10 +432,17 @@
       numberLayer.setMap(map);
       noVisitLayer.setMap(map);
       visitedLayer.setMap(map);
-      infoWindow = new google.maps.InfoWindow();
 
-      makeAreaButtons();
-      fitAllAreas();
+      try {
+        await loadAreaGeoJson();
+        makeAreaButtons();
+        fitAllAreas();
+        setStatus(`区域データ ${areaNumbers.length}件を読み込みました／共有機能に接続しています…`);
+      } catch (err) {
+        console.error(err);
+        setStatus("区域データ読込エラー：" + err.message);
+        alert("区域境界を読み込めませんでした。takuyu_areas.geojson が index.html と同じ場所にあるか確認してください。\n\n" + err.message);
+      }
 
       document.getElementById("toggleAreas").addEventListener("change", e => {
         areaLayer.setMap(e.target.checked ? map : null);
@@ -397,7 +453,6 @@
       document.getElementById("toggleNoVisit").addEventListener("change", e => {
         noVisitLayer.setMap(e.target.checked ? map : null);
       });
-
       document.getElementById("toggleVisited").addEventListener("change", e => {
         visitedLayer.setMap(e.target.checked ? map : null);
       });
@@ -418,11 +473,10 @@
         if (!addMode || !activeAreaNo || !e.latLng) return;
 
         const wrap = document.createElement("div");
-
-        const text = document.createElement("div");
-        text.textContent = `区域${activeAreaNo}：この場所の記録を選んでください`;
-        text.style.marginBottom = "10px";
-        wrap.appendChild(text);
+        const message = document.createElement("div");
+        message.textContent = `区域${activeAreaNo}：この場所の記録を選んでください`;
+        message.style.marginBottom = "10px";
+        wrap.appendChild(message);
 
         const choices = [
           { label: "会えた", status: "met", color: "#1976d2" },
@@ -470,9 +524,9 @@
         };
 
         const wrap = document.createElement("div");
-        const text = document.createElement("div");
-        text.textContent = `区域${areaNo}：${labels[status] || "会えた"}`;
-        text.style.marginBottom = "8px";
+        const message = document.createElement("div");
+        message.textContent = `区域${areaNo}：${labels[status] || "会えた"}`;
+        message.style.marginBottom = "8px";
 
         const delBtn = document.createElement("button");
         delBtn.type = "button";
@@ -480,7 +534,7 @@
         delBtn.style.padding = "7px 12px";
         delBtn.addEventListener("click", () => removeSharedMark(docId));
 
-        wrap.appendChild(text);
+        wrap.appendChild(message);
         wrap.appendChild(delBtn);
         infoWindow.setContent(wrap);
         infoWindow.setPosition(e.latLng);
@@ -492,8 +546,9 @@
 
     function makeAreaButtons() {
       const container = document.getElementById("areaButtons");
-      const numbers = Object.keys(AREA_CENTERS).sort((a,b) => Number(a)-Number(b));
-      numbers.forEach(no => {
+      container.innerHTML = "";
+
+      areaNumbers.forEach(no => {
         const btn = document.createElement("button");
         btn.textContent = "区域 " + no;
         btn.dataset.areaNo = String(no);
@@ -507,11 +562,15 @@
         btn.classList.toggle("selected", btn.dataset.areaNo === String(areaNo));
       });
 
+      const selectedButton = document.querySelector(`#areaButtons button[data-area-no="${CSS.escape(String(areaNo))}"]`);
+      if (selectedButton) {
+        selectedButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+      }
+
       activeAreaNo = String(areaNo);
 
-      // 選択した区域だけ薄く色付けする
       areaLayer.setStyle(feature => {
-        const no = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        const no = areaNoFromFeature(feature);
         const selected = no === String(activeAreaNo);
         return {
           strokeColor: selected ? "#1976d2" : "#333333",
@@ -527,14 +586,16 @@
       addMode = false;
       updateAddModeButton();
       if (currentUser) setStatus(`共有機能：接続済み／区域${activeAreaNo}を選択中`);
+
       const bounds = new google.maps.LatLngBounds();
       let found = false;
 
       areaLayer.forEach(feature => {
-        const no = String(feature.getProperty("area_no") || feature.getProperty("name") || "");
+        const no = areaNoFromFeature(feature);
         if (no !== String(areaNo)) return;
-
-        feature.getGeometry().forEachLatLng(latLng => {
+        const geometry = feature.getGeometry();
+        if (!geometry) return;
+        geometry.forEachLatLng(latLng => {
           bounds.extend(latLng);
           found = true;
         });
@@ -546,8 +607,8 @@
           const currentZoom = map.getZoom() || 17;
           map.setZoom(Math.min(currentZoom + 1, 18));
         });
-      } else if (AREA_CENTERS[areaNo]) {
-        map.setCenter(AREA_CENTERS[areaNo]);
+      } else if (areaCenters[areaNo]) {
+        map.setCenter(areaCenters[areaNo]);
         map.setZoom(18);
       }
     }
@@ -556,7 +617,9 @@
       const bounds = new google.maps.LatLngBounds();
       let found = false;
       areaLayer.forEach(feature => {
-        feature.getGeometry().forEachLatLng(latLng => {
+        const geometry = feature.getGeometry();
+        if (!geometry) return;
+        geometry.forEachLatLng(latLng => {
           bounds.extend(latLng);
           found = true;
         });
@@ -570,8 +633,8 @@
       if (!GOOGLE_MAPS_API_KEY || GOOGLE_MAPS_API_KEY === "YOUR_DEMO_KEY") {
         const mapEl = document.getElementById("map");
         mapEl.innerHTML =
-          '<div style="padding:24px;font-size:16px;">Google Maps Demo KeyをHTML内の <strong>GOOGLE_MAPS_API_KEY</strong> に設定してください。</div>';
-        setStatus("Google Maps Demo Keyが未設定です");
+          '<div style="padding:24px;font-size:16px;">Google Maps APIキーをHTML内の <strong>GOOGLE_MAPS_API_KEY</strong> に設定してください。</div>';
+        setStatus("Google Maps APIキーが未設定です");
         return;
       }
 
@@ -585,7 +648,7 @@
         setStatus("Google Mapsの読み込みに失敗しました");
         const mapEl = document.getElementById("map");
         mapEl.innerHTML =
-          '<div style="padding:24px;font-size:16px;">Google Mapsを読み込めませんでした。Demo Keyやブラウザの開発者コンソールを確認してください。</div>';
+          '<div style="padding:24px;font-size:16px;">Google Mapsを読み込めませんでした。APIキーやブラウザの開発者コンソールを確認してください。</div>';
       };
       document.head.appendChild(script);
     }
