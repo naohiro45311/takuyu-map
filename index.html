@@ -165,7 +165,7 @@
 
     let map;
     let areaLayer;
-    let numberLayer;
+    let numberMarkers = [];
     let noVisitLayer;
     let visitedLayer;
     let infoWindow;
@@ -175,22 +175,6 @@
     let unsubscribeVisited = null;
     const areaCenters = {};
     const areaNumbers = [];
-
-    function makeNumberIcon(text) {
-      const safe = String(text).replace(/[&<>"']/g, "");
-      const svg =
-        `<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44">
-          <circle cx="22" cy="22" r="19" fill="#ffffff" stroke="#1565c0" stroke-width="4"/>
-          <text x="22" y="27" text-anchor="middle"
-                font-family="Arial, sans-serif" font-size="15" font-weight="700"
-                fill="#1565c0">${safe}</text>
-        </svg>`;
-      return {
-        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(44, 44),
-        anchor: new google.maps.Point(22, 22)
-      };
-    }
 
     function makeNoVisitIcon() {
       const svg =
@@ -271,16 +255,44 @@
       areaNumbers.length = 0;
       Object.keys(areaCenters).forEach(key => delete areaCenters[key]);
 
+      // 区域番号はSVG画像ではなく、Google Mapsの固定サイズの
+      // シンボル＋文字ラベルで表示する。スマホで拡大・縮小を
+      // 繰り返した際にSVGアイコンが巨大化する現象を避けるため。
+      numberMarkers.forEach(marker => marker.setMap(null));
+      numberMarkers.length = 0;
+
       [...boundsByArea.keys()].sort(naturalAreaSort).forEach(no => {
         const bounds = boundsByArea.get(no);
         if (!bounds || bounds.isEmpty()) return;
         const center = bounds.getCenter();
         areaCenters[no] = { lat: center.lat(), lng: center.lng() };
         areaNumbers.push(no);
-        numberLayer.add({
-          geometry: new google.maps.Data.Point(center),
-          properties: { area_no: no, name: no }
+
+        const numberText = String(no);
+        const marker = new google.maps.Marker({
+          position: center,
+          map: document.getElementById("toggleNumbers")?.checked === false ? null : map,
+          clickable: false,
+          optimized: true,
+          zIndex: 20,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 19,
+            fillColor: "#ffffff",
+            fillOpacity: 1,
+            strokeColor: "#1565c0",
+            strokeOpacity: 1,
+            strokeWeight: 3
+          },
+          label: {
+            text: numberText,
+            color: "#1565c0",
+            fontFamily: "Arial, sans-serif",
+            fontSize: numberText.length >= 3 ? "12px" : "14px",
+            fontWeight: "700"
+          }
         });
+        numberMarkers.push(marker);
       });
     }
 
@@ -393,7 +405,6 @@
       });
 
       areaLayer = new google.maps.Data();
-      numberLayer = new google.maps.Data();
       noVisitLayer = new google.maps.Data();
       visitedLayer = new google.maps.Data();
       infoWindow = new google.maps.InfoWindow();
@@ -404,19 +415,11 @@
         const no = areaNoFromFeature(feature);
         const selected = activeAreaNo && no === String(activeAreaNo);
         return {
-          strokeColor: selected ? "#1976d2" : "#333333",
+          strokeColor: "#2e7d32",
           strokeWeight: selected ? 5 : 4,
           strokeOpacity: 0.95,
           fillColor: selected ? "#1976d2" : "#ffffff",
           fillOpacity: selected ? 0.07 : 0.02,
-          clickable: false
-        };
-      });
-
-      numberLayer.setStyle(feature => {
-        const label = areaNoFromFeature(feature);
-        return {
-          icon: makeNumberIcon(label),
           clickable: false
         };
       });
@@ -429,7 +432,6 @@
       });
 
       areaLayer.setMap(map);
-      numberLayer.setMap(map);
       noVisitLayer.setMap(map);
       visitedLayer.setMap(map);
 
@@ -448,7 +450,7 @@
         areaLayer.setMap(e.target.checked ? map : null);
       });
       document.getElementById("toggleNumbers").addEventListener("change", e => {
-        numberLayer.setMap(e.target.checked ? map : null);
+        numberMarkers.forEach(marker => marker.setMap(e.target.checked ? map : null));
       });
       document.getElementById("toggleNoVisit").addEventListener("change", e => {
         noVisitLayer.setMap(e.target.checked ? map : null);
@@ -570,7 +572,7 @@
         const no = areaNoFromFeature(feature);
         const selected = no === String(activeAreaNo);
         return {
-          strokeColor: selected ? "#1976d2" : "#333333",
+          strokeColor: "#2e7d32",
           strokeWeight: selected ? 5 : 4,
           strokeOpacity: 0.95,
           fillColor: selected ? "#1976d2" : "#ffffff",
