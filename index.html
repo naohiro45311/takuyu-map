@@ -26,31 +26,26 @@
       background: white;
       border-bottom: 1px solid #ddd;
     }
-    .area-buttons {
+    .area-selector {
       display: flex;
-      flex-wrap: nowrap;
+      align-items: center;
       gap: 8px;
       margin-bottom: 10px;
-      overflow-x: auto;
-      padding-bottom: 4px;
-      scrollbar-width: thin;
     }
-    .area-buttons button {
-      flex: 0 0 auto;
-      border: 1px solid #bbb;
-      background: #fff;
-      padding: 8px 12px;
-      border-radius: 8px;
-      font-size: 16px;
-      cursor: pointer;
+    .area-selector label {
+      font-size: 15px;
+      font-weight: 600;
       white-space: nowrap;
     }
-    .area-buttons button:hover { background: #f0f0f0; }
-    .area-buttons button.selected {
-      background: #1976d2;
-      color: #ffffff;
-      border-color: #1976d2;
-      font-weight: 700;
+    .area-selector select {
+      min-width: 150px;
+      max-width: 240px;
+      padding: 8px 36px 8px 10px;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 16px;
+      cursor: pointer;
     }
     .toggles {
       display: flex;
@@ -111,7 +106,12 @@
   </header>
 
   <div class="controls">
-    <div class="area-buttons" id="areaButtons"></div>
+    <div class="area-selector">
+      <label for="areaSelect">区域を選択：</label>
+      <select id="areaSelect" aria-label="区域番号を選択">
+        <option value="">区域を選択してください</option>
+      </select>
+    </div>
     <div class="toggles">
       <label><input type="checkbox" id="toggleAreas" checked> 区域境界</label>
       <label><input type="checkbox" id="toggleNumbers" checked> 区域番号</label>
@@ -128,7 +128,7 @@
   <div id="map"></div>
 
   <div class="note">
-    選択中の区域ボタンは青色になり、その区域内も薄い青で表示されます。
+    プルダウンで区域番号を選ぶと、その区域へ移動し、区域内が薄い青で表示されます。
     ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
     ④「会えた（青✓）」「再訪問（緑✓）」「訪問拒否（赤✓）」から選択します。
     登録した印はFirestore経由で他端末にもリアルタイム共有されます。
@@ -545,27 +545,24 @@
     }
 
     function makeAreaButtons() {
-      const container = document.getElementById("areaButtons");
-      container.innerHTML = "";
+      const select = document.getElementById("areaSelect");
+      select.innerHTML = '<option value="">区域を選択してください</option>';
 
       areaNumbers.forEach(no => {
-        const btn = document.createElement("button");
-        btn.textContent = "区域 " + no;
-        btn.dataset.areaNo = String(no);
-        btn.addEventListener("click", () => focusArea(no));
-        container.appendChild(btn);
+        const option = document.createElement("option");
+        option.value = String(no);
+        option.textContent = "区域 " + no;
+        select.appendChild(option);
+      });
+
+      select.addEventListener("change", e => {
+        if (e.target.value) focusArea(e.target.value);
       });
     }
 
     function focusArea(areaNo) {
-      document.querySelectorAll("#areaButtons button").forEach(btn => {
-        btn.classList.toggle("selected", btn.dataset.areaNo === String(areaNo));
-      });
-
-      const selectedButton = document.querySelector(`#areaButtons button[data-area-no="${CSS.escape(String(areaNo))}"]`);
-      if (selectedButton) {
-        selectedButton.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
-      }
+      const select = document.getElementById("areaSelect");
+      if (select) select.value = String(areaNo);
 
       activeAreaNo = String(areaNo);
 
