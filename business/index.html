@@ -50,7 +50,7 @@
 
   <div class="note">
     ①ビジネス区域を選択 → ②「記録を追加」→ ③地図上の場所をタップ →
-    ④「会えた」「再訪問」「訪問拒否」から選択します。登録した印は他端末にも共有されます。
+    ④「訪問済」「訪問保留」「訪問拒否」から選択します。登録した印は他端末にも共有されます。
   </div>
 
   <script type="module">
@@ -296,8 +296,8 @@
         wrap.appendChild(msg);
 
         const choices=[
-          {label:"会えた",status:"met",color:"#1976d2"},
-          {label:"再訪問",status:"revisit",color:"#2e7d32"},
+          {label:"訪問済",status:"met",color:"#1976d2"},
+          {label:"訪問保留",status:"revisit",color:"#2e7d32"},
           {label:"訪問拒否",status:"refuse",color:"#c62828"}
         ];
         const row=document.createElement("div");
@@ -319,10 +319,10 @@
         const docId=e.feature.getProperty("docId");
         const areaNo=e.feature.getProperty("areaNo");
         const status=String(e.feature.getProperty("status")||"met");
-        const labels={met:"会えた",revisit:"再訪問",refuse:"訪問拒否"};
+        const labels={met:"訪問済",revisit:"訪問保留",refuse:"訪問拒否"};
         const wrap=document.createElement("div");
         const msg=document.createElement("div");
-        msg.textContent=`${areaNo}：${labels[status]||"会えた"}`;
+        msg.textContent=`${areaNo}：${labels[status]||"訪問済"}`;
         msg.style.marginBottom="8px";
         const del=document.createElement("button");
         del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
