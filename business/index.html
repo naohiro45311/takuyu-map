@@ -155,7 +155,7 @@
     function areaStyle(feature) {
       const no = areaNoFromFeature(feature);
       const selected = activeAreaNo && no === String(activeAreaNo);
-      return { strokeColor:"#43A047", strokeWeight:selected?6:5, strokeOpacity:.95, fillColor:selected?"#1976d2":"#fff", fillOpacity:selected?.07:.02, clickable:false };
+      return { strokeColor:"#43A047", strokeWeight:selected?6:5, strokeOpacity:.95, fillColor:selected?"#FFD54F":"#fff", fillOpacity:selected?.22:.02, clickable:false };
     }
 
     async function startFirebase() {
