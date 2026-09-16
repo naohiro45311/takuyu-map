@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓勇会衆 会社訪問区域地図</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f6f7f9;
+      color: #222;
+    }
+    header {
+      padding: 12px 16px;
+      background: white;
+      border-bottom: 1px solid #ddd;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .controls {
+      padding: 10px 12px;
+      background: white;
+      border-bottom: 1px solid #ddd;
+    }
+    .area-selector {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .area-selector label {
+      font-size: 15px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .area-selector select {
+      min-width: 170px;
+      max-width: 260px;
+      padding: 8px 36px 8px 10px;
+      border: 1px solid #bbb;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    .toggles {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      font-size: 15px;
+    }
+    .toggles label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    #map {
+      width: 100%;
+      height: calc(100vh - 160px);
+      min-height: 500px;
+    }
+    .note {
+      padding: 10px 12px;
+      font-size: 13px;
+      color: #555;
+      background: #fff8e6;
+      border-top: 1px solid #eee;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>拓勇会衆 会社訪問区域地図</h1>
+  </header>
+
+  <div class="controls">
+    <div class="area-selector">
+      <label for="areaSelect">ビジネス区域を選択：</label>
+      <select id="areaSelect" aria-label="ビジネス区域番号を選択">
+        <option value="">区域を選択してください</option>
+      </select>
+    </div>
+    <div class="toggles">
+      <label><input type="checkbox" id="toggleAreas" checked> 区域境界</label>
+      <label><input type="checkbox" id="toggleNumbers" checked> 区域番号</label>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div class="note">
+    プルダウンでビジネス区域を選ぶと、その区域へ移動し、区域内が薄い青で表示されます。
+    区域境界は <strong>takuyu_business_areas.geojson</strong> から自動で読み込みます。
+  </div>
+
+  <script>
+    const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";
+    const AREAS_GEOJSON_URL = "./takuyu_business_areas.geojson";
+
+    let map;
+    let areaLayer;
+    let numberMarkers = [];
+    let activeAreaNo = null;
+    const areaCenters = {};
+    const areaNumbers = [];
+
+    function areaNoFromFeature(feature) {
+      return String(
+        feature.getProperty("business_no") ||
+        feature.getProperty("area_no") ||
+        feature.getProperty("name") ||
+        ""
+      ).trim();
+    }
+
+    function naturalAreaSort(a, b) {
+      return String(a).localeCompare(String(b), "ja", {
+        numeric: true,
+        sensitivity: "base"
+      });
+    }
+
+    async function loadAreaGeoJson() {
+      const response = await fetch(AREAS_GEOJSON_URL, { cache: "no-store" });
+      if (!response.ok) {
+        throw new Error(`ビジネス区域GeoJSONを取得できませんでした（HTTP ${response.status}）`);
+      }
+
+      const geojson = await response.json();
+      if (!geojson || geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) {
+        throw new Error("takuyu_business_areas.geojson の形式を確認してください。");
+      }
+
+      areaLayer.addGeoJson(geojson);
+      buildAreaIndexAndNumbers();
+    }
+
+    function buildAreaIndexAndNumbers() {
+      const boundsByArea = new Map();
+
+      areaLayer.forEach(feature => {
+        const no = areaNoFromFeature(feature);
+        if (!no) return;
+
+        if (!boundsByArea.has(no)) {
+          boundsByArea.set(no, new google.maps.LatLngBounds());
+        }
+
+        const bounds = boundsByArea.get(no);
+        const geometry = feature.getGeometry();
+        if (!geometry) return;
+        geometry.forEachLatLng(latLng => bounds.extend(latLng));
+      });
+
+      areaNumbers.length = 0;
+      Object.keys(areaCenters).forEach(key => delete areaCenters[key]);
+
+      numberMarkers.forEach(marker => marker.setMap(null));
+      numberMarkers.length = 0;
+
+      [...boundsByArea.keys()].sort(naturalAreaSort).forEach(no => {
+        const bounds = boundsByArea.get(no);
+        if (!bounds || bounds.isEmpty()) return;
+
+        const center = bounds.getCenter();
+        areaCenters[no] = { lat: center.lat(), lng: center.lng() };
+        areaNumbers.push(no);
+
+        const labelText = String(no);
+        const marker = new google.maps.Marker({
+          position: center,
+          map: document.getElementById("toggleNumbers")?.checked === false ? null : map,
+          clickable: false,
+          optimized: true,
+          zIndex: 20,
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 22,
+            fillColor: "#ffffff",
+            fillOpacity: 1,
+            strokeColor: "#1565c0",
+            strokeOpacity: 1,
+            strokeWeight: 3
+          },
+          label: {
+            text: labelText,
+            color: "#1565c0",
+            fontFamily: "Arial, sans-serif",
+            fontSize: labelText.length >= 4 ? "11px" : "13px",
+            fontWeight: "700"
+          }
+        });
+
+        numberMarkers.push(marker);
+      });
+    }
+
+    function areaStyle(feature) {
+      const no = areaNoFromFeature(feature);
+      const selected = activeAreaNo && no === String(activeAreaNo);
+
+      return {
+        strokeColor: "#43A047",
+        strokeWeight: selected ? 6 : 5,
+        strokeOpacity: 0.95,
+        fillColor: selected ? "#1976d2" : "#ffffff",
+        fillOpacity: selected ? 0.07 : 0.02,
+        clickable: false
+      };
+    }
+
+    async function initMap() {
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: { lat: 42.65, lng: 141.65 },
+        zoom: 13,
+        mapTypeControl: true,
+        streetViewControl: false,
+        fullscreenControl: true
+      });
+
+      areaLayer = new google.maps.Data();
+      areaLayer.setStyle(areaStyle);
+      areaLayer.setMap(map);
+
+      try {
+        await loadAreaGeoJson();
+        makeAreaSelect();
+        fitAllAreas();
+      } catch (err) {
+        console.error(err);
+        alert(
+          "ビジネス区域を読み込めませんでした。takuyu_business_areas.geojson が " +
+          "business/index.html と同じフォルダにあるか確認してください。\n\n" +
+          err.message
+        );
+      }
+
+      document.getElementById("toggleAreas").addEventListener("change", e => {
+        areaLayer.setMap(e.target.checked ? map : null);
+      });
+
+      document.getElementById("toggleNumbers").addEventListener("change", e => {
+        numberMarkers.forEach(marker => marker.setMap(e.target.checked ? map : null));
+      });
+    }
+
+    function makeAreaSelect() {
+      const select = document.getElementById("areaSelect");
+      select.innerHTML = '<option value="">区域を選択してください</option>';
+
+      areaNumbers.forEach(no => {
+        const option = document.createElement("option");
+        option.value = String(no);
+        option.textContent = String(no);
+        select.appendChild(option);
+      });
+
+      select.addEventListener("change", e => {
+        if (e.target.value) {
+          focusArea(e.target.value);
+        } else {
+          activeAreaNo = null;
+          areaLayer.setStyle(areaStyle);
+          fitAllAreas();
+        }
+      });
+    }
+
+    function focusArea(areaNo) {
+      const select = document.getElementById("areaSelect");
+      if (select) select.value = String(areaNo);
+
+      activeAreaNo = String(areaNo);
+      areaLayer.setStyle(areaStyle);
+
+      const bounds = new google.maps.LatLngBounds();
+      let found = false;
+
+      areaLayer.forEach(feature => {
+        const no = areaNoFromFeature(feature);
+        if (no !== String(areaNo)) return;
+
+        const geometry = feature.getGeometry();
+        if (!geometry) return;
+
+        geometry.forEachLatLng(latLng => {
+          bounds.extend(latLng);
+          found = true;
+        });
+      });
+
+      if (found) {
+        map.fitBounds(bounds, 45);
+        google.maps.event.addListenerOnce(map, "idle", () => {
+          const currentZoom = map.getZoom() || 17;
+          map.setZoom(Math.min(currentZoom + 1, 18));
+        });
+      } else if (areaCenters[areaNo]) {
+        map.setCenter(areaCenters[areaNo]);
+        map.setZoom(18);
+      }
+    }
+
+    function fitAllAreas() {
+      const bounds = new google.maps.LatLngBounds();
+      let found = false;
+
+      areaLayer.forEach(feature => {
+        const geometry = feature.getGeometry();
+        if (!geometry) return;
+
+        geometry.forEachLatLng(latLng => {
+          bounds.extend(latLng);
+          found = true;
+        });
+      });
+
+      if (found) map.fitBounds(bounds, 40);
+    }
+
+    window.initMap = initMap;
+
+    function loadGoogleMaps() {
+      const script = document.createElement("script");
+      script.src =
+        "https://maps.googleapis.com/maps/api/js?key=" +
+        encodeURIComponent(GOOGLE_MAPS_API_KEY) +
+        "&callback=initMap";
+      script.async = true;
+      script.onerror = () => {
+        document.getElementById("map").innerHTML =
+          '<div style="padding:24px;font-size:16px;">Google Mapsを読み込めませんでした。APIキー設定を確認してください。</div>';
+      };
+      document.head.appendChild(script);
+    }
+
+    loadGoogleMaps();
+  </script>
+</body>
+</html>
