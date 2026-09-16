@@ -6,22 +6,22 @@
   <title>拓勇会衆 会社訪問区域地図</title>
   <style>
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f6f7f9; color: #222; }
-    header { padding: 12px 16px; background: white; border-bottom: 1px solid #ddd; }
-    header h1 { margin: 0; font-size: 18px; }
-    .controls { padding: 10px 12px; background: white; border-bottom: 1px solid #ddd; }
-    .area-selector { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
-    .area-selector label { font-size: 15px; font-weight: 600; white-space: nowrap; }
-    .area-selector select { min-width: 170px; max-width: 260px; padding: 8px 36px 8px 10px; border: 1px solid #bbb; border-radius: 8px; background: #fff; font-size: 16px; cursor: pointer; }
-    .toggles { display: flex; flex-wrap: wrap; gap: 14px; font-size: 15px; }
-    .toggles label { display: inline-flex; align-items: center; gap: 6px; }
-    .shared-controls { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
-    .shared-controls button { border: 1px solid #bbb; background: #fff; padding: 8px 12px; border-radius: 8px; font-size: 15px; cursor: pointer; }
-    .shared-controls button:disabled { opacity: .5; cursor: not-allowed; }
-    .shared-controls button.active { background: #e8f5e9; border-color: #2e7d32; font-weight: 700; }
-    #firebaseStatus { font-size: 13px; color: #555; }
-    #map { width: 100%; height: calc(100vh - 205px); min-height: 500px; }
-    .note { padding: 10px 12px; font-size: 13px; color: #555; background: #fff8e6; border-top: 1px solid #eee; }
+    body { margin:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f6f7f9; color:#222; }
+    header { padding:12px 16px; background:#fff; border-bottom:1px solid #ddd; }
+    header h1 { margin:0; font-size:18px; }
+    .controls { padding:10px 12px; background:#fff; border-bottom:1px solid #ddd; }
+    .area-selector { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .area-selector label { font-size:15px; font-weight:600; white-space:nowrap; }
+    .area-selector select { min-width:170px; max-width:260px; padding:8px 36px 8px 10px; border:1px solid #bbb; border-radius:8px; background:#fff; font-size:16px; }
+    .toggles { display:flex; flex-wrap:wrap; gap:14px; font-size:15px; }
+    .toggles label { display:inline-flex; align-items:center; gap:6px; }
+    .shared-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+    .shared-controls button { border:1px solid #bbb; background:#fff; padding:8px 12px; border-radius:8px; font-size:15px; cursor:pointer; }
+    .shared-controls button:disabled { opacity:.5; cursor:not-allowed; }
+    .shared-controls button.active { background:#e8f5e9; border-color:#2e7d32; font-weight:700; }
+    #firebaseStatus { font-size:13px; color:#555; }
+    #map { width:100%; height:calc(100vh - 205px); min-height:500px; }
+    .note { padding:10px 12px; font-size:13px; color:#555; background:#fff8e6; border-top:1px solid #eee; }
   </style>
 </head>
 <body>
@@ -34,13 +34,11 @@
         <option value="">区域を選択してください</option>
       </select>
     </div>
-
     <div class="toggles">
       <label><input type="checkbox" id="toggleAreas" checked> 区域境界</label>
       <label><input type="checkbox" id="toggleNumbers" checked> 区域番号</label>
       <label><input type="checkbox" id="toggleVisited" checked> 共有記録</label>
     </div>
-
     <div class="shared-controls">
       <button type="button" id="addModeBtn" disabled>記録を追加</button>
       <button type="button" id="clearAreaBtn" disabled>この区域の共有印を全部消す</button>
@@ -52,16 +50,13 @@
 
   <div class="note">
     ①ビジネス区域を選択 → ②「記録を追加」→ ③地図上の場所をタップ →
-    ④「会えた」「再訪問」「訪問拒否」から選択します。登録した印は共有されます。
+    ④「会えた」「再訪問」「訪問拒否」から選択します。登録した印は他端末にも共有されます。
   </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import {
-      getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc,
-      serverTimestamp, query, where, getDocs
-    } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAsWJ8uw9RzUQ3nt39Y4Jvru7l838IJ1E4",
@@ -78,13 +73,13 @@
 
     const GOOGLE_MAPS_API_KEY = "AIzaSyCF3tnGpjMfXsPtWGMKmofSxb4AECKB-J0";
     const AREAS_GEOJSON_URL = "./takuyu_business_areas.geojson";
-    const VISIT_COLLECTION = "businessVisitedHomes";
 
-    let map;
-    let areaLayer;
-    let visitedLayer;
+    // 一般区域版と同じ、既に許可されているコレクションを使います。
+    // ビジネス版は businessLat / businessLng を使うため、一般区域版には表示されません。
+    const VISIT_COLLECTION = "visitedHomes";
+
+    let map, areaLayer, visitedLayer, infoWindow;
     let numberMarkers = [];
-    let infoWindow;
     let activeAreaNo = null;
     let addMode = false;
     let currentUser = null;
@@ -96,8 +91,8 @@
       return String(feature.getProperty("business_no") || feature.getProperty("area_no") || feature.getProperty("name") || "").trim();
     }
 
-    function naturalAreaSort(a, b) {
-      return String(a).localeCompare(String(b), "ja", { numeric: true, sensitivity: "base" });
+    function naturalAreaSort(a,b) {
+      return String(a).localeCompare(String(b),"ja",{numeric:true,sensitivity:"base"});
     }
 
     function setStatus(text) {
@@ -106,26 +101,17 @@
     }
 
     function makeSharedIcon(status) {
-      const colors = { met: "#1976d2", revisit: "#2e7d32", refuse: "#c62828" };
+      const colors = { met:"#1976d2", revisit:"#2e7d32", refuse:"#c62828" };
       const color = colors[status] || colors.met;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34">
-        <circle cx="17" cy="17" r="13" fill="#ffffff" stroke="${color}" stroke-width="4"/>
-        <path d="M9.5 17 L14.5 22 L24.5 11.5" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>`;
-      return {
-        url: "data:image/svg+xml;charset=UTF-8," + encodeURIComponent(svg),
-        scaledSize: new google.maps.Size(34, 34),
-        anchor: new google.maps.Point(17, 17)
-      };
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="13" fill="#fff" stroke="${color}" stroke-width="4"/><path d="M9.5 17 L14.5 22 L24.5 11.5" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      return { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg), scaledSize:new google.maps.Size(34,34), anchor:new google.maps.Point(17,17) };
     }
 
     async function loadAreaGeoJson() {
-      const response = await fetch(AREAS_GEOJSON_URL, { cache: "no-store" });
+      const response = await fetch(AREAS_GEOJSON_URL,{cache:"no-store"});
       if (!response.ok) throw new Error(`ビジネス区域GeoJSONを取得できませんでした（HTTP ${response.status}）`);
       const geojson = await response.json();
-      if (!geojson || geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) {
-        throw new Error("takuyu_business_areas.geojson の形式を確認してください。");
-      }
+      if (!geojson || geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) throw new Error("takuyu_business_areas.geojson の形式を確認してください。");
       areaLayer.addGeoJson(geojson);
       buildAreaIndexAndNumbers();
     }
@@ -135,47 +121,32 @@
       areaLayer.forEach(feature => {
         const no = areaNoFromFeature(feature);
         if (!no) return;
-        if (!boundsByArea.has(no)) boundsByArea.set(no, new google.maps.LatLngBounds());
-        const bounds = boundsByArea.get(no);
-        const geometry = feature.getGeometry();
-        if (geometry) geometry.forEachLatLng(latLng => bounds.extend(latLng));
+        if (!boundsByArea.has(no)) boundsByArea.set(no,new google.maps.LatLngBounds());
+        const g = feature.getGeometry();
+        if (g) g.forEachLatLng(ll => boundsByArea.get(no).extend(ll));
       });
 
       areaNumbers.length = 0;
-      Object.keys(areaCenters).forEach(key => delete areaCenters[key]);
-      numberMarkers.forEach(marker => marker.setMap(null));
+      Object.keys(areaCenters).forEach(k => delete areaCenters[k]);
+      numberMarkers.forEach(m => m.setMap(null));
       numberMarkers.length = 0;
 
       [...boundsByArea.keys()].sort(naturalAreaSort).forEach(no => {
         const bounds = boundsByArea.get(no);
         if (!bounds || bounds.isEmpty()) return;
         const center = bounds.getCenter();
-        areaCenters[no] = { lat: center.lat(), lng: center.lng() };
+        areaCenters[no] = {lat:center.lat(),lng:center.lng()};
         areaNumbers.push(no);
 
         const text = String(no);
         const marker = new google.maps.Marker({
-          position: center,
-          map: document.getElementById("toggleNumbers")?.checked === false ? null : map,
-          clickable: false,
-          optimized: true,
-          zIndex: 20,
-          icon: {
-            path: google.maps.SymbolPath.CIRCLE,
-            scale: 22,
-            fillColor: "#ffffff",
-            fillOpacity: 1,
-            strokeColor: "#1565c0",
-            strokeOpacity: 1,
-            strokeWeight: 3
-          },
-          label: {
-            text,
-            color: "#1565c0",
-            fontFamily: "Arial, sans-serif",
-            fontSize: text.length >= 4 ? "11px" : "13px",
-            fontWeight: "700"
-          }
+          position:center,
+          map:document.getElementById("toggleNumbers")?.checked === false ? null : map,
+          clickable:false,
+          optimized:true,
+          zIndex:20,
+          icon:{ path:google.maps.SymbolPath.CIRCLE, scale:22, fillColor:"#fff", fillOpacity:1, strokeColor:"#1565c0", strokeOpacity:1, strokeWeight:3 },
+          label:{ text, color:"#1565c0", fontFamily:"Arial, sans-serif", fontSize:text.length>=4?"11px":"13px", fontWeight:"700" }
         });
         numberMarkers.push(marker);
       });
@@ -184,20 +155,13 @@
     function areaStyle(feature) {
       const no = areaNoFromFeature(feature);
       const selected = activeAreaNo && no === String(activeAreaNo);
-      return {
-        strokeColor: "#43A047",
-        strokeWeight: selected ? 6 : 5,
-        strokeOpacity: .95,
-        fillColor: selected ? "#1976d2" : "#ffffff",
-        fillOpacity: selected ? .07 : .02,
-        clickable: false
-      };
+      return { strokeColor:"#43A047", strokeWeight:selected?6:5, strokeOpacity:.95, fillColor:selected?"#1976d2":"#fff", fillOpacity:selected?.07:.02, clickable:false };
     }
 
     async function startFirebase() {
       try {
         await signInAnonymously(auth);
-        onAuthStateChanged(auth, user => {
+        onAuthStateChanged(auth,user => {
           currentUser = user || null;
           if (currentUser) {
             setStatus(`共有機能：接続済み／ビジネス区域 ${areaNumbers.length}件`);
@@ -208,66 +172,65 @@
             setStatus("共有機能：未接続");
           }
         });
-      } catch (err) {
+      } catch(err) {
         console.error(err);
-        setStatus("Firebase接続エラー：" + (err.code || err.message));
+        setStatus("Firebase接続エラー："+(err.code||err.message));
       }
     }
 
     function subscribeVisited() {
       if (unsubscribeVisited) unsubscribeVisited();
-      unsubscribeVisited = onSnapshot(collection(db, VISIT_COLLECTION), snapshot => {
-        const existing = [];
-        visitedLayer.forEach(feature => existing.push(feature));
-        existing.forEach(feature => visitedLayer.remove(feature));
+      unsubscribeVisited = onSnapshot(collection(db,VISIT_COLLECTION), snapshot => {
+        const existing=[];
+        visitedLayer.forEach(f=>existing.push(f));
+        existing.forEach(f=>visitedLayer.remove(f));
 
         snapshot.forEach(d => {
-          const data = d.data();
-          if (typeof data.lat !== "number" || typeof data.lng !== "number") return;
+          const data=d.data();
+          const areaNo=String(data.areaNo||"");
+          // ビジネス版の記録だけを表示。一般区域版の記録とは混ざりません。
+          if (!areaNo.startsWith("B-")) return;
+          if (typeof data.businessLat !== "number" || typeof data.businessLng !== "number") return;
           visitedLayer.add({
-            id: d.id,
-            geometry: new google.maps.Data.Point({ lat: data.lat, lng: data.lng }),
-            properties: {
-              docId: d.id,
-              areaNo: String(data.areaNo || ""),
-              status: String(data.status || "met")
-            }
+            id:d.id,
+            geometry:new google.maps.Data.Point({lat:data.businessLat,lng:data.businessLng}),
+            properties:{docId:d.id,areaNo,status:String(data.status||"met")}
           });
         });
-      }, err => {
+      },err=>{
         console.error(err);
-        setStatus("共有データ読込エラー：" + (err.code || err.message));
+        setStatus("共有データ読込エラー："+(err.code||err.message));
       });
     }
 
-    async function addSharedMark(latLng, status) {
+    async function addSharedMark(latLng,status) {
       if (!currentUser || !activeAreaNo) return;
       try {
-        await addDoc(collection(db, VISIT_COLLECTION), {
-          areaNo: String(activeAreaNo),
-          lat: latLng.lat(),
-          lng: latLng.lng(),
-          status: String(status || "met"),
-          createdAt: serverTimestamp(),
-          createdBy: currentUser.uid
+        await addDoc(collection(db,VISIT_COLLECTION),{
+          areaNo:String(activeAreaNo),
+          businessLat:latLng.lat(),
+          businessLng:latLng.lng(),
+          status:String(status||"met"),
+          createdAt:serverTimestamp(),
+          createdBy:currentUser.uid
         });
-        addMode = false;
+        addMode=false;
         updateAddModeButton();
-        map.setOptions({ draggableCursor: null });
-      } catch (err) {
+        map.setOptions({draggableCursor:null});
+      } catch(err) {
         console.error(err);
-        alert("登録できませんでした：" + (err.code || err.message));
+        alert("登録できませんでした："+(err.code||err.message));
       }
     }
 
     async function removeSharedMark(docId) {
       if (!currentUser || !docId) return;
       try {
-        await deleteDoc(doc(db, VISIT_COLLECTION, docId));
+        await deleteDoc(doc(db,VISIT_COLLECTION,docId));
         infoWindow.close();
-      } catch (err) {
+      } catch(err) {
         console.error(err);
-        alert("削除できませんでした：" + (err.code || err.message));
+        alert("削除できませんでした："+(err.code||err.message));
       }
     }
 
@@ -275,38 +238,29 @@
       if (!currentUser || !activeAreaNo) return;
       if (!confirm(`${activeAreaNo}の共有印をすべて削除しますか？`)) return;
       try {
-        const q = query(collection(db, VISIT_COLLECTION), where("areaNo", "==", String(activeAreaNo)));
-        const snap = await getDocs(q);
-        await Promise.all(snap.docs.map(d => deleteDoc(doc(db, VISIT_COLLECTION, d.id))));
-      } catch (err) {
+        const q=query(collection(db,VISIT_COLLECTION),where("areaNo","==",String(activeAreaNo)));
+        const snap=await getDocs(q);
+        await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
+      } catch(err) {
         console.error(err);
-        alert("一括削除できませんでした：" + (err.code || err.message));
+        alert("一括削除できませんでした："+(err.code||err.message));
       }
     }
 
     function updateAddModeButton() {
-      const btn = document.getElementById("addModeBtn");
-      if (!btn) return;
-      btn.classList.toggle("active", addMode);
-      btn.textContent = addMode ? "追加モード中：場所をタップ" : "記録を追加";
+      const btn=document.getElementById("addModeBtn");
+      btn.classList.toggle("active",addMode);
+      btn.textContent=addMode?"追加モード中：場所をタップ":"記録を追加";
     }
 
     async function initMap() {
-      map = new google.maps.Map(document.getElementById("map"), {
-        center: { lat: 42.65, lng: 141.65 },
-        zoom: 13,
-        mapTypeControl: true,
-        streetViewControl: false,
-        fullscreenControl: true
-      });
-
-      areaLayer = new google.maps.Data();
-      visitedLayer = new google.maps.Data();
-      infoWindow = new google.maps.InfoWindow();
+      map=new google.maps.Map(document.getElementById("map"),{center:{lat:42.65,lng:141.65},zoom:13,mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
+      areaLayer=new google.maps.Data();
+      visitedLayer=new google.maps.Data();
+      infoWindow=new google.maps.InfoWindow();
 
       areaLayer.setStyle(areaStyle);
-      visitedLayer.setStyle(feature => ({ icon: makeSharedIcon(String(feature.getProperty("status") || "met")) }));
-
+      visitedLayer.setStyle(feature=>({icon:makeSharedIcon(String(feature.getProperty("status")||"met"))}));
       areaLayer.setMap(map);
       visitedLayer.setMap(map);
 
@@ -315,170 +269,124 @@
         makeAreaSelect();
         fitAllAreas();
         setStatus(`ビジネス区域 ${areaNumbers.length}件を読み込みました／共有機能に接続しています…`);
-      } catch (err) {
+      } catch(err) {
         console.error(err);
-        alert("ビジネス区域を読み込めませんでした。takuyu_business_areas.geojson が business/index.html と同じフォルダにあるか確認してください。\n\n" + err.message);
+        alert("ビジネス区域を読み込めませんでした。\n\n"+err.message);
       }
 
-      document.getElementById("toggleAreas").addEventListener("change", e => areaLayer.setMap(e.target.checked ? map : null));
-      document.getElementById("toggleNumbers").addEventListener("change", e => numberMarkers.forEach(marker => marker.setMap(e.target.checked ? map : null)));
-      document.getElementById("toggleVisited").addEventListener("change", e => visitedLayer.setMap(e.target.checked ? map : null));
+      document.getElementById("toggleAreas").addEventListener("change",e=>areaLayer.setMap(e.target.checked?map:null));
+      document.getElementById("toggleNumbers").addEventListener("change",e=>numberMarkers.forEach(m=>m.setMap(e.target.checked?map:null)));
+      document.getElementById("toggleVisited").addEventListener("change",e=>visitedLayer.setMap(e.target.checked?map:null));
 
-      document.getElementById("addModeBtn").addEventListener("click", () => {
-        if (!activeAreaNo) {
-          alert("先にビジネス区域を選択してください。");
-          return;
-        }
-        addMode = !addMode;
+      document.getElementById("addModeBtn").addEventListener("click",()=>{
+        if (!activeAreaNo) { alert("先にビジネス区域を選択してください。"); return; }
+        addMode=!addMode;
         updateAddModeButton();
-        map.setOptions({ draggableCursor: addMode ? "crosshair" : null });
+        map.setOptions({draggableCursor:addMode?"crosshair":null});
       });
 
-      document.getElementById("clearAreaBtn").addEventListener("click", clearActiveAreaVisited);
+      document.getElementById("clearAreaBtn").addEventListener("click",clearActiveAreaVisited);
 
-      map.addListener("click", e => {
+      map.addListener("click",e=>{
         if (!addMode || !activeAreaNo || !e.latLng) return;
+        const wrap=document.createElement("div");
+        const msg=document.createElement("div");
+        msg.textContent=`${activeAreaNo}：この場所の記録を選んでください`;
+        msg.style.marginBottom="10px";
+        wrap.appendChild(msg);
 
-        const wrap = document.createElement("div");
-        const message = document.createElement("div");
-        message.textContent = `${activeAreaNo}：この場所の記録を選んでください`;
-        message.style.marginBottom = "10px";
-        wrap.appendChild(message);
-
-        const choices = [
-          { label: "会えた", status: "met", color: "#1976d2" },
-          { label: "再訪問", status: "revisit", color: "#2e7d32" },
-          { label: "訪問拒否", status: "refuse", color: "#c62828" }
+        const choices=[
+          {label:"会えた",status:"met",color:"#1976d2"},
+          {label:"再訪問",status:"revisit",color:"#2e7d32"},
+          {label:"訪問拒否",status:"refuse",color:"#c62828"}
         ];
-
-        const row = document.createElement("div");
-        row.style.display = "flex";
-        row.style.flexWrap = "wrap";
-        row.style.gap = "7px";
-
-        choices.forEach(choice => {
-          const btn = document.createElement("button");
-          btn.type = "button";
-          btn.textContent = choice.label;
-          btn.style.padding = "8px 12px";
-          btn.style.border = `2px solid ${choice.color}`;
-          btn.style.color = choice.color;
-          btn.style.background = "#fff";
-          btn.style.borderRadius = "8px";
-          btn.style.fontWeight = "700";
-          btn.addEventListener("click", async () => {
-            infoWindow.close();
-            await addSharedMark(e.latLng, choice.status);
-          });
+        const row=document.createElement("div");
+        row.style.display="flex"; row.style.flexWrap="wrap"; row.style.gap="7px";
+        choices.forEach(choice=>{
+          const btn=document.createElement("button");
+          btn.type="button"; btn.textContent=choice.label;
+          btn.style.padding="8px 12px"; btn.style.border=`2px solid ${choice.color}`; btn.style.color=choice.color; btn.style.background="#fff"; btn.style.borderRadius="8px"; btn.style.fontWeight="700";
+          btn.addEventListener("click",async()=>{infoWindow.close(); await addSharedMark(e.latLng,choice.status);});
           row.appendChild(btn);
         });
-
         wrap.appendChild(row);
         infoWindow.setContent(wrap);
         infoWindow.setPosition(e.latLng);
-        infoWindow.open({ map });
+        infoWindow.open({map});
       });
 
-      visitedLayer.addListener("click", e => {
-        const docId = e.feature.getProperty("docId");
-        const areaNo = e.feature.getProperty("areaNo");
-        const status = String(e.feature.getProperty("status") || "met");
-        const labels = { met: "会えた", revisit: "再訪問", refuse: "訪問拒否" };
-
-        const wrap = document.createElement("div");
-        const message = document.createElement("div");
-        message.textContent = `${areaNo}：${labels[status] || "会えた"}`;
-        message.style.marginBottom = "8px";
-
-        const delBtn = document.createElement("button");
-        delBtn.type = "button";
-        delBtn.textContent = "この印を消す";
-        delBtn.style.padding = "7px 12px";
-        delBtn.addEventListener("click", () => removeSharedMark(docId));
-
-        wrap.appendChild(message);
-        wrap.appendChild(delBtn);
-        infoWindow.setContent(wrap);
-        infoWindow.setPosition(e.latLng);
-        infoWindow.open({ map });
+      visitedLayer.addListener("click",e=>{
+        const docId=e.feature.getProperty("docId");
+        const areaNo=e.feature.getProperty("areaNo");
+        const status=String(e.feature.getProperty("status")||"met");
+        const labels={met:"会えた",revisit:"再訪問",refuse:"訪問拒否"};
+        const wrap=document.createElement("div");
+        const msg=document.createElement("div");
+        msg.textContent=`${areaNo}：${labels[status]||"会えた"}`;
+        msg.style.marginBottom="8px";
+        const del=document.createElement("button");
+        del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
+        del.addEventListener("click",()=>removeSharedMark(docId));
+        wrap.appendChild(msg); wrap.appendChild(del);
+        infoWindow.setContent(wrap); infoWindow.setPosition(e.latLng); infoWindow.open({map});
       });
 
       startFirebase();
     }
 
     function makeAreaSelect() {
-      const select = document.getElementById("areaSelect");
-      select.innerHTML = '<option value="">区域を選択してください</option>';
-      areaNumbers.forEach(no => {
-        const option = document.createElement("option");
-        option.value = String(no);
-        option.textContent = String(no);
-        select.appendChild(option);
+      const select=document.getElementById("areaSelect");
+      select.innerHTML='<option value="">区域を選択してください</option>';
+      areaNumbers.forEach(no=>{
+        const option=document.createElement("option");
+        option.value=String(no); option.textContent=String(no); select.appendChild(option);
       });
-      select.addEventListener("change", e => {
+      select.addEventListener("change",e=>{
         if (e.target.value) focusArea(e.target.value);
-        else {
-          activeAreaNo = null;
-          areaLayer.setStyle(areaStyle);
-          document.getElementById("clearAreaBtn").disabled = true;
-          fitAllAreas();
-        }
+        else { activeAreaNo=null; areaLayer.setStyle(areaStyle); document.getElementById("clearAreaBtn").disabled=true; fitAllAreas(); }
       });
     }
 
     function focusArea(areaNo) {
-      activeAreaNo = String(areaNo);
+      activeAreaNo=String(areaNo);
       areaLayer.setStyle(areaStyle);
-      document.getElementById("clearAreaBtn").disabled = !currentUser;
-      addMode = false;
-      updateAddModeButton();
+      document.getElementById("clearAreaBtn").disabled=!currentUser;
+      addMode=false; updateAddModeButton();
       if (currentUser) setStatus(`共有機能：接続済み／${activeAreaNo}を選択中`);
 
-      const bounds = new google.maps.LatLngBounds();
-      let found = false;
-      areaLayer.forEach(feature => {
-        if (areaNoFromFeature(feature) !== String(areaNo)) return;
-        const geometry = feature.getGeometry();
-        if (!geometry) return;
-        geometry.forEachLatLng(latLng => { bounds.extend(latLng); found = true; });
+      const bounds=new google.maps.LatLngBounds();
+      let found=false;
+      areaLayer.forEach(feature=>{
+        if (areaNoFromFeature(feature)!==String(areaNo)) return;
+        const g=feature.getGeometry();
+        if (g) g.forEachLatLng(ll=>{bounds.extend(ll);found=true;});
       });
-
       if (found) {
-        map.fitBounds(bounds, 45);
-        google.maps.event.addListenerOnce(map, "idle", () => {
-          const currentZoom = map.getZoom() || 17;
-          map.setZoom(Math.min(currentZoom + 1, 18));
-        });
+        map.fitBounds(bounds,45);
+        google.maps.event.addListenerOnce(map,"idle",()=>map.setZoom(Math.min((map.getZoom()||17)+1,18)));
       } else if (areaCenters[areaNo]) {
-        map.setCenter(areaCenters[areaNo]);
-        map.setZoom(18);
+        map.setCenter(areaCenters[areaNo]); map.setZoom(18);
       }
     }
 
     function fitAllAreas() {
-      const bounds = new google.maps.LatLngBounds();
-      let found = false;
-      areaLayer.forEach(feature => {
-        const geometry = feature.getGeometry();
-        if (!geometry) return;
-        geometry.forEachLatLng(latLng => { bounds.extend(latLng); found = true; });
+      const bounds=new google.maps.LatLngBounds();
+      let found=false;
+      areaLayer.forEach(feature=>{
+        const g=feature.getGeometry();
+        if (g) g.forEachLatLng(ll=>{bounds.extend(ll);found=true;});
       });
-      if (found) map.fitBounds(bounds, 40);
+      if (found) map.fitBounds(bounds,40);
     }
 
-    window.initMap = initMap;
-
+    window.initMap=initMap;
     function loadGoogleMaps() {
-      const script = document.createElement("script");
-      script.src = "https://maps.googleapis.com/maps/api/js?key=" + encodeURIComponent(GOOGLE_MAPS_API_KEY) + "&callback=initMap";
-      script.async = true;
-      script.onerror = () => {
-        setStatus("Google Mapsの読み込みに失敗しました");
-        document.getElementById("map").innerHTML = '<div style="padding:24px;font-size:16px;">Google Mapsを読み込めませんでした。APIキー設定を確認してください。</div>';
-      };
+      const script=document.createElement("script");
+      script.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(GOOGLE_MAPS_API_KEY)+"&callback=initMap";
+      script.async=true;
+      script.onerror=()=>{setStatus("Google Mapsの読み込みに失敗しました");};
       document.head.appendChild(script);
     }
-
     loadGoogleMaps();
   </script>
 </body>
