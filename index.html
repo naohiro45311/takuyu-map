@@ -128,7 +128,7 @@
   <div id="map"></div>
 
   <div class="note">
-    プルダウンで区域番号を選ぶと、その区域へ移動し、区域内が薄い青で表示されます。
+    プルダウンで区域番号を選ぶと、その区域へ移動し、区域内が薄い黄色で表示されます。
     ①区域番号を選択 → ②「記録を追加」→ ③「追加モード中」になったら家の位置をタップ →
     ④「会えた（青✓）」「再訪問（緑✓）」「訪問拒否（赤✓）」から選択します。
     登録した印はFirestore経由で他端末にもリアルタイム共有されます。
@@ -255,9 +255,6 @@
       areaNumbers.length = 0;
       Object.keys(areaCenters).forEach(key => delete areaCenters[key]);
 
-      // 区域番号はSVG画像ではなく、Google Mapsの固定サイズの
-      // シンボル＋文字ラベルで表示する。スマホで拡大・縮小を
-      // 繰り返した際にSVGアイコンが巨大化する現象を避けるため。
       numberMarkers.forEach(marker => marker.setMap(null));
       numberMarkers.length = 0;
 
@@ -418,8 +415,8 @@
           strokeColor: "#43A047",
           strokeWeight: selected ? 6 : 5,
           strokeOpacity: 0.95,
-          fillColor: selected ? "#1976d2" : "#ffffff",
-          fillOpacity: selected ? 0.07 : 0.02,
+          fillColor: selected ? "#FFD54F" : "#ffffff",
+          fillOpacity: selected ? 0.22 : 0.02,
           clickable: false
         };
       });
@@ -575,8 +572,8 @@
           strokeColor: "#43A047",
           strokeWeight: selected ? 6 : 5,
           strokeOpacity: 0.95,
-          fillColor: selected ? "#1976d2" : "#ffffff",
-          fillOpacity: selected ? 0.07 : 0.02,
+          fillColor: selected ? "#FFD54F" : "#ffffff",
+          fillOpacity: selected ? 0.22 : 0.02,
           clickable: false
         };
       });
