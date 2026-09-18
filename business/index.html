@@ -377,7 +377,10 @@
 
         const del=document.createElement("button");
         del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
-        del.addEventListener("click",()=>removeSharedMark(docId));
+        del.addEventListener("click",()=>{
+          if (!confirm("この共有印を本当に削除しますか？")) return;
+          removeSharedMark(docId);
+        });
         wrap.appendChild(msg);
         wrap.appendChild(dateLine);
         wrap.appendChild(del);
