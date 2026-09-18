@@ -41,7 +41,8 @@
     </div>
     <div class="shared-controls">
       <button type="button" id="addModeBtn" disabled>記録を追加</button>
-      <button type="button" id="clearAreaBtn" disabled>この区域の共有印を全部消す</button>
+      <button type="button" id="refreshBtn">再表示</button>
+      <button type="button" id="clearAreaBtn" disabled>共有印を全削除</button>
       <span id="firebaseStatus">共有機能に接続しています…</span>
     </div>
   </div>
@@ -297,7 +298,17 @@
       try {
         await loadAreaGeoJson();
         makeAreaSelect();
-        fitAllAreas();
+
+        const savedArea=sessionStorage.getItem("businessRefreshArea");
+        sessionStorage.removeItem("businessRefreshArea");
+        if (savedArea && areaNumbers.includes(savedArea)) {
+          const select=document.getElementById("areaSelect");
+          select.value=savedArea;
+          focusArea(savedArea);
+        } else {
+          fitAllAreas();
+        }
+
         setStatus(`ビジネス区域 ${areaNumbers.length}件を読み込みました／共有機能に接続しています…`);
       } catch(err) {
         console.error(err);
@@ -313,6 +324,15 @@
         addMode=!addMode;
         updateAddModeButton();
         map.setOptions({draggableCursor:addMode?"crosshair":null});
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click",()=>{
+        if (activeAreaNo) {
+          sessionStorage.setItem("businessRefreshArea",String(activeAreaNo));
+        } else {
+          sessionStorage.removeItem("businessRefreshArea");
+        }
+        window.location.reload();
       });
 
       document.getElementById("clearAreaBtn").addEventListener("click",clearActiveAreaVisited);
