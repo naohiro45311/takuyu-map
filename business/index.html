@@ -20,8 +20,7 @@
     #addModeBtn { background:#e8f5e9; border-color:#a5d6a7; color:#1b5e20; }
     #addModeBtn.active { background:#c8e6c9; border-color:#2e7d32; font-weight:700; }
     #refreshBtn { background:#e3f2fd; border-color:#90caf9; color:#0d47a1; }
-    #clearAreaBtn { background:#ffebee; border-color:#ef9a9a; color:#b71c1c; }
-    #firebaseStatus { font-size:13px; color:#555; }
+    #clearAreaBtn { background:#ffebee; border-color:#ef9a9a; color:#b71c1c; margin-left:12px; }
     #map { width:100%; flex:1 1 auto; min-height:0; }
   </style>
 </head>
@@ -34,10 +33,9 @@
       </select>
     </div>
     <div class="shared-controls">
-      <button type="button" id="addModeBtn" disabled>記録を追加</button>
-      <button type="button" id="refreshBtn">再表示</button>
+      <button type="button" id="addModeBtn" disabled>＋ 記録を追加</button>
+      <button type="button" id="refreshBtn">↻ 再表示</button>
       <button type="button" id="clearAreaBtn" disabled>記録を全消去</button>
-      <span id="firebaseStatus">共有機能に接続しています…</span>
     </div>
   </div>
 
@@ -263,7 +261,7 @@
     function updateAddModeButton() {
       const btn=document.getElementById("addModeBtn");
       btn.classList.toggle("active",addMode);
-      btn.textContent=addMode?"追加モード中：場所をタップ":"記録を追加";
+      btn.textContent=addMode?"＋ 追加モード中：場所をタップ":"＋ 記録を追加";
     }
 
     async function initMap() {
