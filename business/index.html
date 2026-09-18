@@ -39,7 +39,7 @@
       </select>
     </div>
     <div class="shared-controls">
-      <button type="button" id="addModeBtn" disabled>＋ 記録を追加</button>
+      <button type="button" id="addModeBtn">＋ 記録を追加</button>
       <button type="button" id="refreshBtn">↻ 再表示</button>
       <button type="button" id="clearAreaBtn" disabled>記録を全消去</button>
     </div>
@@ -152,6 +152,24 @@
       return { strokeColor:"#43A047", strokeWeight:selected?6:5, strokeOpacity:.95, fillColor:selected?"#FFD54F":"#fff", fillOpacity:selected?.22:.02, clickable:false };
     }
 
+    async function ensureCurrentUser() {
+      if (currentUser) return currentUser;
+      if (auth.currentUser) {
+        currentUser=auth.currentUser;
+        return currentUser;
+      }
+      try {
+        const credential=await signInAnonymously(auth);
+        currentUser=credential.user;
+        if (!unsubscribeVisited) subscribeVisited();
+        return currentUser;
+      } catch(err) {
+        console.error(err);
+        alert("共有機能に接続できませんでした。通信状態を確認して、もう一度お試しください。");
+        throw err;
+      }
+    }
+
     async function startFirebase() {
       try {
         await signInAnonymously(auth);
@@ -159,7 +177,6 @@
           currentUser = user || null;
           if (currentUser) {
             setStatus(`共有機能：接続済み／ビジネス区域 ${areaNumbers.length}件`);
-            document.getElementById("addModeBtn").disabled = false;
             document.getElementById("clearAreaBtn").disabled = !activeAreaNo;
             subscribeVisited();
           } else {
@@ -203,15 +220,16 @@
     }
 
     async function addSharedMark(latLng,status) {
-      if (!currentUser || !activeAreaNo) return;
+      if (!activeAreaNo) return;
       try {
+        const user=await ensureCurrentUser();
         await addDoc(collection(db,VISIT_COLLECTION),{
           areaNo:String(activeAreaNo),
           businessLat:latLng.lat(),
           businessLng:latLng.lng(),
           status:String(status||"met"),
           createdAt:serverTimestamp(),
-          createdBy:currentUser.uid
+          createdBy:user.uid
         });
         addMode=false;
         updateAddModeButton();
@@ -223,8 +241,9 @@
     }
 
     async function removeSharedMark(docId) {
-      if (!currentUser || !docId) return;
+      if (!docId) return;
       try {
+        await ensureCurrentUser();
         await deleteDoc(doc(db,VISIT_COLLECTION,docId));
         infoWindow.close();
       } catch(err) {
@@ -234,7 +253,7 @@
     }
 
     async function clearActiveAreaVisited() {
-      if (!currentUser || !activeAreaNo) return;
+      if (!activeAreaNo) return;
 
       const areaText=String(activeAreaNo);
       const numberOnly=areaText.replace(/^B-?/i,"").trim();
@@ -254,6 +273,7 @@
       if (!confirm(areaText+" の共有印を本当にすべて削除しますか？")) return;
 
       try {
+        await ensureCurrentUser();
         const q=query(collection(db,VISIT_COLLECTION),where("areaNo","==",areaText));
         const snap=await getDocs(q);
         await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
@@ -415,7 +435,7 @@
     function focusArea(areaNo) {
       activeAreaNo=String(areaNo);
       areaLayer.setStyle(areaStyle);
-      document.getElementById("clearAreaBtn").disabled=!currentUser;
+      document.getElementById("clearAreaBtn").disabled=false;
       addMode=false; updateAddModeButton();
       if (currentUser) setStatus(`共有機能：接続済み／${activeAreaNo}を選択中`);
 
