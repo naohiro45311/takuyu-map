@@ -241,11 +241,29 @@
 
     async function clearActiveAreaVisited() {
       if (!currentUser || !activeAreaNo) return;
-      if (!confirm(`${activeAreaNo}の共有印をすべて削除しますか？`)) return;
+
+      const areaText=String(activeAreaNo);
+      const numberOnly=areaText.replace(/^B-?/i,"").trim();
+
+      const entered=prompt(
+        areaText+" の共有印をすべて削除します。\n\n"+
+        "確認のため区域番号「"+numberOnly+"」を入力してください。"
+      );
+
+      if (entered===null) return;
+
+      if (entered.trim()!==numberOnly) {
+        alert("区域番号が一致しないため、削除を中止しました。");
+        return;
+      }
+
+      if (!confirm(areaText+" の共有印を本当にすべて削除しますか？")) return;
+
       try {
-        const q=query(collection(db,VISIT_COLLECTION),where("areaNo","==",String(activeAreaNo)));
+        const q=query(collection(db,VISIT_COLLECTION),where("areaNo","==",areaText));
         const snap=await getDocs(q);
         await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
+        alert(areaText+" の共有印をすべて削除しました。");
       } catch(err) {
         console.error(err);
         alert("一括削除できませんでした："+(err.code||err.message));
