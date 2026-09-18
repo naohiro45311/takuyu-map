@@ -194,7 +194,12 @@
           visitedLayer.add({
             id:d.id,
             geometry:new google.maps.Data.Point({lat:data.businessLat,lng:data.businessLng}),
-            properties:{docId:d.id,areaNo,status:String(data.status||"met")}
+            properties:{
+              docId:d.id,
+              areaNo,
+              status:String(data.status||"met"),
+              createdAtMillis:data.createdAt?.toDate ? data.createdAt.toDate().getTime() : null
+            }
           });
         });
       },err=>{
@@ -254,7 +259,14 @@
     }
 
     async function initMap() {
-      map=new google.maps.Map(document.getElementById("map"),{center:{lat:42.65,lng:141.65},zoom:13,mapTypeControl:true,streetViewControl:false,fullscreenControl:true});
+      map=new google.maps.Map(document.getElementById("map"),{
+        center:{lat:42.65,lng:141.65},
+        zoom:13,
+        mapTypeControl:true,
+        streetViewControl:false,
+        fullscreenControl:true,
+        gestureHandling:"greedy"
+      });
       areaLayer=new google.maps.Data();
       visitedLayer=new google.maps.Data();
       infoWindow=new google.maps.InfoWindow();
@@ -319,15 +331,38 @@
         const docId=e.feature.getProperty("docId");
         const areaNo=e.feature.getProperty("areaNo");
         const status=String(e.feature.getProperty("status")||"met");
+        const createdAtMillis=e.feature.getProperty("createdAtMillis");
         const labels={met:"訪問済",revisit:"訪問保留",refuse:"訪問拒否"};
         const wrap=document.createElement("div");
+
         const msg=document.createElement("div");
         msg.textContent=`${areaNo}：${labels[status]||"訪問済"}`;
-        msg.style.marginBottom="8px";
+        msg.style.marginBottom="6px";
+
+        const dateLine=document.createElement("div");
+        dateLine.style.marginBottom="10px";
+        dateLine.style.color="#555";
+        dateLine.style.fontSize="13px";
+        if (createdAtMillis) {
+          const dt=new Date(Number(createdAtMillis));
+          dateLine.textContent="登録日時："+dt.toLocaleString("ja-JP",{
+            timeZone:"Asia/Tokyo",
+            year:"numeric",
+            month:"numeric",
+            day:"numeric",
+            hour:"2-digit",
+            minute:"2-digit"
+          });
+        } else {
+          dateLine.textContent="登録日時：記録なし";
+        }
+
         const del=document.createElement("button");
         del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
         del.addEventListener("click",()=>removeSharedMark(docId));
-        wrap.appendChild(msg); wrap.appendChild(del);
+        wrap.appendChild(msg);
+        wrap.appendChild(dateLine);
+        wrap.appendChild(del);
         infoWindow.setContent(wrap); infoWindow.setPosition(e.latLng); infoWindow.open({map});
       });
 
