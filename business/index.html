@@ -20,20 +20,20 @@
     #addModeBtn { background:#e8f5e9; border-color:#a5d6a7; color:#1b5e20; }
     #addModeBtn.active { background:#c8e6c9; border-color:#2e7d32; font-weight:700; }
     #refreshBtn { background:#e3f2fd; border-color:#90caf9; color:#0d47a1; }
-    #clearAreaBtn { background:#ffebee; border-color:#ef9a9a; color:#b71c1c; margin-left:12px; }
+    #clearAreaBtn { background:#ffebee; border-color:#ef9a9a; color:#b71c1c; margin-left:20px; }
     #map { width:100%; flex:1 1 auto; min-height:0; }
 
     @media (max-width: 430px) {
       .shared-controls { flex-wrap:nowrap; gap:6px; }
       .shared-controls button { padding:8px 9px; font-size:14px; white-space:nowrap; }
-      #clearAreaBtn { margin-left:2px; }
+      #clearAreaBtn { margin-left:10px; }
     }
   </style>
 </head>
 <body>
   <div class="controls">
     <div class="area-selector">
-      <label for="areaSelect">ビジネス区域を選択：</label>
+      <label for="areaSelect">区域を選択：</label>
       <select id="areaSelect" aria-label="ビジネス区域番号を選択">
         <option value="">区域を選択してください</option>
       </select>
