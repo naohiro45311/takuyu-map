@@ -33,6 +33,14 @@ jobs:
             exit 1
           fi
 
+          case "$GOOGLE_MAPS_API_KEY" in
+            AIza*) ;;
+            *)
+              echo "GOOGLE_MAPS_API_KEY does not look like a valid Google API key."
+              exit 1
+              ;;
+          esac
+
           mkdir -p _site
           rsync -a --exclude='.git' --exclude='.github' --exclude='_site' ./ _site/
 
