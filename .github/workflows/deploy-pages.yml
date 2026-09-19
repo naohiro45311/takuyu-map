@@ -1,5 +1,7 @@
 name: Deploy GitHub Pages
 
+# Secret refresh redeploy
+
 on:
   push:
     branches: ["main"]
