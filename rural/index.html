@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>拓勇会衆 郊外奉仕区域地図</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { height:100%; }
+    body { margin:0; font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; background:#f6f7f9; color:#222; display:flex; flex-direction:column; overflow:hidden; }
+    header { padding:12px 16px; background:#fff; border-bottom:1px solid #ddd; }
+    header h1 { margin:0; font-size:18px; }
+    .controls { padding:10px 12px; background:#fff; border-bottom:1px solid #ddd; }
+    .area-selector { display:flex; align-items:center; gap:8px; margin-bottom:10px; }
+    .area-selector label { font-size:15px; font-weight:600; white-space:nowrap; }
+    .area-selector select { min-width:170px; max-width:260px; padding:8px 36px 8px 10px; border:1px solid #bbb; border-radius:8px; background:#fff; font-size:16px; }
+    .shared-controls { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+    .shared-controls button { border:1px solid #bbb; padding:8px 12px; border-radius:8px; font-size:15px; cursor:pointer; }
+    .shared-controls button:disabled { opacity:.5; cursor:not-allowed; }
+    #addModeBtn { background:#e8f5e9; border-color:#a5d6a7; color:#1b5e20; }
+    #addModeBtn.active { background:#c8e6c9; border-color:#2e7d32; font-weight:700; }
+    #refreshBtn { background:#e3f2fd; border-color:#90caf9; color:#0d47a1; }
+    #adminBtn { background:#f5f7fa; border-color:#b8c1cc; color:#37474f; margin-left:auto; font-weight:700; }
+    #clearAreaBtn { background:#ffebee; border:1px solid #ef9a9a; color:#b71c1c; width:100%; min-height:52px; padding:14px 16px; border-radius:10px; font-size:15px; line-height:1.35; font-weight:700; cursor:pointer; }
+    #map { width:100%; flex:1 1 auto; min-height:0; }
+
+    body.refusal-focus-mode .controls,
+    body.refusal-focus-mode .admin-overlay {
+      display:none !important;
+    }
+    body.refusal-focus-mode #map {
+      flex:1 1 100%;
+      height:100vh;
+      min-height:100vh;
+    }
+
+    .admin-overlay {
+      position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.35);
+      display:flex; align-items:flex-end; justify-content:center;
+    }
+    .admin-overlay[hidden] { display:none; }
+    .admin-panel {
+      width:min(680px,100%); max-height:82vh; overflow:auto; background:#fff;
+      border-radius:20px 20px 0 0; padding:16px 16px 24px;
+      box-shadow:0 -8px 30px rgba(0,0,0,.18);
+    }
+    .admin-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .admin-head h2 { margin:0; font-size:21px; }
+    .admin-badge { background:#ffebee; color:#b71c1c; padding:5px 9px; border-radius:999px; font-size:13px; font-weight:700; }
+    #adminCloseBtn { margin-left:auto; border:0; background:transparent; font-size:28px; line-height:1; color:#666; cursor:pointer; }
+    .admin-card { border:1px solid #e0e0e0; border-radius:14px; padding:14px; margin-top:12px; background:#fafafa; }
+    .admin-card h3 { margin:0 0 6px; font-size:17px; }
+    .admin-card p { margin:0 0 12px; color:#666; font-size:14px; line-height:1.5; }
+    .admin-tabs { display:flex; gap:8px; margin:8px 0 12px; }
+    .admin-tabs button {
+      flex:1; border:1px solid #cfd8dc; background:#eef3f8; color:#546e7a;
+      padding:10px 8px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer;
+    }
+    .admin-tabs button.active { background:#e3f2fd; border-color:#64b5f6; color:#0d47a1; }
+    .admin-empty { padding:16px 10px; text-align:center; color:#777; background:#fff; border-radius:10px; }
+    .refusal-row { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:11px; margin-top:9px; }
+    .refusal-row-title { display:flex; align-items:center; gap:7px; font-weight:700; }
+    .refusal-dot { width:11px; height:11px; border-radius:50%; background:#c62828; flex:0 0 auto; }
+    .refusal-meta { color:#666; font-size:13px; margin:5px 0 9px 18px; }
+    .refusal-actions { display:flex; flex-wrap:wrap; gap:7px; }
+    .refusal-actions button { border-radius:8px; padding:7px 10px; font-weight:700; cursor:pointer; }
+    .refusal-map-btn { background:#fff; border:1px solid #90a4ae; color:#455a64; }
+    .refusal-confirm-btn { background:#e8f5e9; border:1px solid #81c784; color:#1b5e20; }
+    .refusal-delete-btn { background:#ffebee; border:1px solid #ef9a9a; color:#b71c1c; }
+
+    @media (max-width: 430px) {
+      .shared-controls { flex-wrap:nowrap; gap:6px; }
+      .shared-controls button { padding:8px 9px; font-size:14px; white-space:nowrap; }
+      #adminBtn { margin-left:auto; }
+    }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <div class="area-selector">
+      <label for="areaSelect">区域を選択：</label>
+      <select id="areaSelect" aria-label="郊外区域番号を選択">
+        <option value="">区域を選択してください</option>
+      </select>
+    </div>
+    <div class="shared-controls">
+      <button type="button" id="addModeBtn">＋ 記録を追加</button>
+      <button type="button" id="refreshBtn">↻ 再表示</button>
+      <button type="button" id="adminBtn">⚙ 管理</button>
+    </div>
+  </div>
+
+  <div id="map"></div>
+
+  <div id="adminOverlay" class="admin-overlay" hidden>
+    <div class="admin-panel" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+      <div class="admin-head">
+        <h2 id="adminTitle">訪問拒否の管理</h2>
+        <span class="admin-badge">管理者モード</span>
+        <button type="button" id="adminCloseBtn" aria-label="管理画面を閉じる">×</button>
+      </div>
+
+      <div class="admin-card">
+        <h3>訪問拒否</h3>
+        <p>新しく登録された訪問拒否を確認して確定できます。確定済みの拒否も、状況が変わった場合は管理者が削除できます。</p>
+        <div class="admin-tabs" role="tablist" aria-label="訪問拒否の状態">
+          <button type="button" id="adminTabPending" class="active">未確定 <span id="pendingCount">0</span></button>
+          <button type="button" id="adminTabOfficial">確定済み <span id="officialCount">0</span></button>
+        </div>
+        <div id="refusalAdminList">
+          <div class="admin-empty">訪問拒否の記録を読み込んでいます…</div>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>区域の記録を全消去</h3>
+        <p id="clearAreaAdminText">先に区域を選択してください。</p>
+        <button type="button" id="clearAreaBtn" disabled>選択区域の記録を全消去</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
+    import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyAsWJ8uw9RzUQ3nt39Y4Jvru7l838IJ1E4",
+      authDomain: "takuyu-map.firebaseapp.com",
+      projectId: "takuyu-map",
+      storageBucket: "takuyu-map.firebasestorage.app",
+      messagingSenderId: "1045163180802",
+      appId: "1:1045163180802:web:f36a869d9b73a03bfb781b"
+    };
+
+    const firebaseApp = initializeApp(firebaseConfig);
+    const auth = getAuth(firebaseApp);
+    const db = getFirestore(firebaseApp);
+
+    const GOOGLE_MAPS_API_KEY = "__GOOGLE_MAPS_API_KEY__";
+    const AREAS_GEOJSON_URL = "./takuyu_rural_areas.geojson";
+
+    // 一般区域版と同じ、既に許可されているコレクションを使います。
+    // 郊外版は areaType="rural" と ruralLat / ruralLng を使い、他の区域データと区別します。
+    const VISIT_COLLECTION = "visitedHomes";
+    const REFUSAL_FOCUS_ID = new URLSearchParams(window.location.search).get("refusal");
+
+    if (REFUSAL_FOCUS_ID) {
+      document.body.classList.add("refusal-focus-mode");
+    }
+
+    let map, areaLayer, visitedLayer, infoWindow;
+    let numberMarkers = [];
+    let activeAreaNo = null;
+    let addMode = false;
+    let currentUser = null;
+    let unsubscribeVisited = null;
+    let ruralVisitRecords = [];
+    let adminActiveTab = "pending";
+    let refusalFocusHandled = false;
+    let focusHighlightMarker = null;
+    let currentLocationMarker = null;
+    let currentLocationAccuracyCircle = null;
+    let geolocationWatchId = null;
+    let lastKnownLocation = null;
+    let centerOnNextLocation = false;
+    const areaCenters = {};
+    const areaNumbers = [];
+
+    function areaNoFromFeature(feature) {
+      return String(feature.getProperty("rural_no") || feature.getProperty("area_no") || feature.getProperty("name") || "").trim();
+    }
+
+    function naturalAreaSort(a,b) {
+      return String(a).localeCompare(String(b),"ja",{numeric:true,sensitivity:"base"});
+    }
+
+    function getTodayAdminPassword() {
+      const parts=new Intl.DateTimeFormat("en-US",{
+        timeZone:"Asia/Tokyo",
+        year:"numeric",
+        month:"2-digit",
+        day:"2-digit"
+      }).formatToParts(new Date());
+      const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+      return `${values.year}${values.month}${values.day}`;
+    }
+
+    function updateAdminAreaState() {
+      const btn=document.getElementById("clearAreaBtn");
+      const text=document.getElementById("clearAreaAdminText");
+      if (!btn || !text) return;
+      btn.disabled=!activeAreaNo;
+      text.textContent=activeAreaNo
+        ? `${activeAreaNo} の訪問済・訪問保留を削除します。訪問拒否は残ります。`
+        : "先に区域を選択してください。";
+    }
+
+    function openAdminPanel() {
+      // テスト期間中は管理者パスワードを一時停止しています。
+      updateAdminAreaState();
+      renderAdminRefusals();
+      document.getElementById("adminOverlay").hidden=false;
+    }
+
+    function closeAdminPanel() {
+      document.getElementById("adminOverlay").hidden=true;
+    }
+
+    function setStatus(text) {
+      const el = document.getElementById("firebaseStatus");
+      if (el) el.textContent = text;
+    }
+
+    function makeSharedIcon(status,refusalState) {
+      const colors = { met:"#1976d2", revisit:"#2e7d32", refuse:"#c62828" };
+      const color = colors[status] || colors.met;
+      let symbolPath='<path d="M9.5 17 L14.5 22 L24.5 11.5" fill="none" stroke="'+color+'" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
+      let dash="";
+      if (status==="refuse") {
+        if (refusalState==="official") {
+          symbolPath='<path d="M11 11 L23 23 M23 11 L11 23" fill="none" stroke="'+color+'" stroke-width="4" stroke-linecap="round"/>';
+        } else {
+          symbolPath='<text x="17" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="'+color+'">?</text>';
+          dash=' stroke-dasharray="4 3"';
+        }
+      }
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="13" fill="#fff" stroke="${color}" stroke-width="4"${dash}/>${symbolPath}</svg>`;
+      return { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg), scaledSize:new google.maps.Size(34,34), anchor:new google.maps.Point(17,17) };
+    }
+
+
+    function createCurrentLocationControl() {
+      const wrap=document.createElement("div");
+      wrap.style.margin="0 0 18px 12px";
+
+      const btn=document.createElement("button");
+      btn.type="button";
+      btn.textContent="◎ 現在地";
+      btn.setAttribute("aria-label","現在地を表示");
+      btn.style.background="#fff";
+      btn.style.border="1px solid #b8c1cc";
+      btn.style.borderRadius="10px";
+      btn.style.boxShadow="0 2px 7px rgba(0,0,0,.24)";
+      btn.style.color="#1565c0";
+      btn.style.fontSize="15px";
+      btn.style.fontWeight="700";
+      btn.style.padding="10px 14px";
+      btn.style.cursor="pointer";
+      btn.style.whiteSpace="nowrap";
+
+      btn.addEventListener("click",()=>{
+        if (!navigator.geolocation) {
+          alert("この端末では現在地を取得できません。");
+          return;
+        }
+
+        centerOnNextLocation=true;
+
+        if (lastKnownLocation) {
+          map.panTo(lastKnownLocation);
+          if ((map.getZoom()||0)<17) map.setZoom(17);
+          centerOnNextLocation=false;
+        }
+
+        if (geolocationWatchId!==null) return;
+
+        btn.textContent="◎ 取得中…";
+        geolocationWatchId=navigator.geolocation.watchPosition(
+          position=>{
+            const pos={
+              lat:position.coords.latitude,
+              lng:position.coords.longitude
+            };
+            lastKnownLocation=pos;
+
+            if (!currentLocationMarker) {
+              currentLocationMarker=new google.maps.Marker({
+                position:pos,
+                map,
+                zIndex:900,
+                clickable:false,
+                title:"現在地",
+                icon:{
+                  path:google.maps.SymbolPath.CIRCLE,
+                  scale:8,
+                  fillColor:"#1976d2",
+                  fillOpacity:1,
+                  strokeColor:"#ffffff",
+                  strokeOpacity:1,
+                  strokeWeight:3
+                }
+              });
+            } else {
+              currentLocationMarker.setPosition(pos);
+            }
+
+            const accuracy=Math.max(0,Number(position.coords.accuracy)||0);
+            if (!currentLocationAccuracyCircle) {
+              currentLocationAccuracyCircle=new google.maps.Circle({
+                map,
+                center:pos,
+                radius:accuracy,
+                clickable:false,
+                fillColor:"#1976d2",
+                fillOpacity:.10,
+                strokeColor:"#1976d2",
+                strokeOpacity:.28,
+                strokeWeight:1,
+                zIndex:100
+              });
+            } else {
+              currentLocationAccuracyCircle.setCenter(pos);
+              currentLocationAccuracyCircle.setRadius(accuracy);
+            }
+
+            btn.textContent="◎ 現在地";
+
+            if (centerOnNextLocation) {
+              map.panTo(pos);
+              if ((map.getZoom()||0)<17) map.setZoom(17);
+              centerOnNextLocation=false;
+            }
+          },
+          error=>{
+            console.error(error);
+            geolocationWatchId=null;
+            btn.textContent="◎ 現在地";
+            centerOnNextLocation=false;
+
+            if (error.code===error.PERMISSION_DENIED) {
+              alert("現在地を表示するには、ブラウザの位置情報を許可してください。");
+            } else if (error.code===error.POSITION_UNAVAILABLE) {
+              alert("現在地を取得できませんでした。少し場所を変えてもう一度お試しください。");
+            } else {
+              alert("現在地の取得に時間がかかっています。もう一度お試しください。");
+            }
+          },
+          {
+            enableHighAccuracy:true,
+            maximumAge:5000,
+            timeout:15000
+          }
+        );
+      });
+
+      wrap.appendChild(btn);
+      map.controls[google.maps.ControlPosition.LEFT_BOTTOM].push(wrap);
+    }
+
+    async function loadAreaGeoJson() {
+      const response = await fetch(AREAS_GEOJSON_URL,{cache:"no-store"});
+      if (!response.ok) throw new Error(`郊外区域GeoJSONを取得できませんでした（HTTP ${response.status}）`);
+      const geojson = await response.json();
+      if (!geojson || geojson.type !== "FeatureCollection" || !Array.isArray(geojson.features)) throw new Error("takuyu_rural_areas.geojson の形式を確認してください。");
+      areaLayer.addGeoJson(geojson);
+      buildAreaIndexAndNumbers();
+    }
+
+    function buildAreaIndexAndNumbers() {
+      const boundsByArea = new Map();
+      areaLayer.forEach(feature => {
+        const no = areaNoFromFeature(feature);
+        if (!no) return;
+        if (!boundsByArea.has(no)) boundsByArea.set(no,new google.maps.LatLngBounds());
+        const g = feature.getGeometry();
+        if (g) g.forEachLatLng(ll => boundsByArea.get(no).extend(ll));
+      });
+
+      areaNumbers.length = 0;
+      Object.keys(areaCenters).forEach(k => delete areaCenters[k]);
+      numberMarkers.forEach(m => m.setMap(null));
+      numberMarkers.length = 0;
+
+      [...boundsByArea.keys()].sort(naturalAreaSort).forEach(no => {
+        const bounds = boundsByArea.get(no);
+        if (!bounds || bounds.isEmpty()) return;
+        const center = bounds.getCenter();
+        areaCenters[no] = {lat:center.lat(),lng:center.lng()};
+        areaNumbers.push(no);
+
+        const text = String(no);
+        const marker = new google.maps.Marker({
+          position:center,
+          map:map,
+          clickable:false,
+          optimized:true,
+          zIndex:20,
+          icon:{ path:google.maps.SymbolPath.CIRCLE, scale:22, fillColor:"#fff", fillOpacity:1, strokeColor:"#1565c0", strokeOpacity:1, strokeWeight:3 },
+          label:{ text, color:"#1565c0", fontFamily:"Arial, sans-serif", fontSize:text.length>=4?"11px":"13px", fontWeight:"700" }
+        });
+        numberMarkers.push(marker);
+      });
+    }
+
+    function areaStyle(feature) {
+      const no = areaNoFromFeature(feature);
+      const selected = activeAreaNo && no === String(activeAreaNo);
+      return { strokeColor:"#43A047", strokeWeight:selected?6:5, strokeOpacity:.95, fillColor:selected?"#FFD54F":"#fff", fillOpacity:selected?.22:.02, clickable:false };
+    }
+
+    async function ensureCurrentUser() {
+      if (currentUser) return currentUser;
+      if (auth.currentUser) {
+        currentUser=auth.currentUser;
+        return currentUser;
+      }
+      try {
+        const credential=await signInAnonymously(auth);
+        currentUser=credential.user;
+        if (!unsubscribeVisited) subscribeVisited();
+        return currentUser;
+      } catch(err) {
+        console.error(err);
+        alert("共有機能に接続できませんでした。通信状態を確認して、もう一度お試しください。");
+        throw err;
+      }
+    }
+
+    async function startFirebase() {
+      try {
+        await signInAnonymously(auth);
+        onAuthStateChanged(auth,user => {
+          currentUser = user || null;
+          if (currentUser) {
+            setStatus(`共有機能：接続済み／郊外区域 ${areaNumbers.length}件`);
+            updateAdminAreaState();
+            subscribeVisited();
+          } else {
+            setStatus("共有機能：未接続");
+          }
+        });
+      } catch(err) {
+        console.error(err);
+        setStatus("Firebase接続エラー："+(err.code||err.message));
+      }
+    }
+
+    function subscribeVisited() {
+      if (unsubscribeVisited) unsubscribeVisited();
+      unsubscribeVisited = onSnapshot(collection(db,VISIT_COLLECTION), snapshot => {
+        const existing=[];
+        visitedLayer.forEach(f=>existing.push(f));
+        existing.forEach(f=>visitedLayer.remove(f));
+        ruralVisitRecords=[];
+
+        snapshot.forEach(d => {
+          const data=d.data();
+          const areaNo=String(data.areaNo||"");
+          // 郊外版の記録だけを表示。他の区域データとは混ざりません。
+          if (String(data.areaType||"")!=="rural") return;
+          if (typeof data.ruralLat !== "number" || typeof data.ruralLng !== "number") return;
+
+          const status=String(data.status||"met");
+          const refusalState=status==="refuse" ? String(data.refusalState||"pending") : "";
+          const createdAtMillis=data.createdAt?.toDate ? data.createdAt.toDate().getTime() : null;
+          const confirmedAtMillis=data.confirmedAt?.toDate ? data.confirmedAt.toDate().getTime() : null;
+
+          ruralVisitRecords.push({
+            docId:d.id,
+            areaNo,
+            status,
+            refusalState,
+            lat:data.ruralLat,
+            lng:data.ruralLng,
+            createdAtMillis,
+            confirmedAtMillis
+          });
+
+          visitedLayer.add({
+            id:d.id,
+            geometry:new google.maps.Data.Point({lat:data.ruralLat,lng:data.ruralLng}),
+            properties:{
+              docId:d.id,
+              areaNo,
+              status,
+              refusalState,
+              createdAtMillis,
+              confirmedAtMillis
+            }
+          });
+        });
+
+        if (!document.getElementById("adminOverlay").hidden) renderAdminRefusals();
+        handleRefusalFocusFromUrl();
+      },err=>{
+        console.error(err);
+        setStatus("共有データ読込エラー："+(err.code||err.message));
+      });
+    }
+
+    async function addSharedMark(latLng,status) {
+      if (!activeAreaNo) return;
+      try {
+        const user=await ensureCurrentUser();
+        const normalizedStatus=String(status||"met");
+        const record={
+          areaNo:String(activeAreaNo),
+          areaType:"rural",
+          ruralLat:latLng.lat(),
+          ruralLng:latLng.lng(),
+          status:normalizedStatus,
+          createdAt:serverTimestamp(),
+          createdBy:user.uid
+        };
+        if (normalizedStatus==="refuse") record.refusalState="pending";
+        await addDoc(collection(db,VISIT_COLLECTION),record);
+        addMode=false;
+        updateAddModeButton();
+        map.setOptions({draggableCursor:null});
+      } catch(err) {
+        console.error(err);
+        alert("登録できませんでした："+(err.code||err.message));
+      }
+    }
+
+    async function removeSharedMark(docId) {
+      if (!docId) return;
+      try {
+        await ensureCurrentUser();
+        await deleteDoc(doc(db,VISIT_COLLECTION,docId));
+        infoWindow.close();
+      } catch(err) {
+        console.error(err);
+        alert("削除できませんでした："+(err.code||err.message));
+      }
+    }
+
+    function formatAdminDate(millis) {
+      if (!millis) return "日時記録なし";
+      return new Date(Number(millis)).toLocaleString("ja-JP",{
+        timeZone:"Asia/Tokyo",
+        year:"numeric",
+        month:"numeric",
+        day:"numeric",
+        hour:"2-digit",
+        minute:"2-digit"
+      });
+    }
+
+    function setAdminTab(tab) {
+      adminActiveTab=tab==="official" ? "official" : "pending";
+      document.getElementById("adminTabPending").classList.toggle("active",adminActiveTab==="pending");
+      document.getElementById("adminTabOfficial").classList.toggle("active",adminActiveTab==="official");
+      renderAdminRefusals();
+    }
+
+    function renderAdminRefusals() {
+      const list=document.getElementById("refusalAdminList");
+      if (!list) return;
+
+      const refusals=ruralVisitRecords
+        .filter(r=>r.status==="refuse")
+        .sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));
+      const pending=refusals.filter(r=>r.refusalState!=="official");
+      const official=refusals.filter(r=>r.refusalState==="official");
+
+      document.getElementById("pendingCount").textContent=String(pending.length);
+      document.getElementById("officialCount").textContent=String(official.length);
+
+      const rows=adminActiveTab==="official" ? official : pending;
+      list.innerHTML="";
+
+      if (!rows.length) {
+        const empty=document.createElement("div");
+        empty.className="admin-empty";
+        empty.textContent=adminActiveTab==="official"
+          ? "確定済みの訪問拒否はありません。"
+          : "未確定の訪問拒否はありません。";
+        list.appendChild(empty);
+        return;
+      }
+
+      rows.forEach(record=>{
+        const row=document.createElement("div");
+        row.className="refusal-row";
+
+        const title=document.createElement("div");
+        title.className="refusal-row-title";
+        const dot=document.createElement("span");
+        dot.className="refusal-dot";
+        const titleText=document.createElement("span");
+        titleText.textContent=record.areaNo+"：訪問拒否";
+        title.append(dot,titleText);
+
+        const meta=document.createElement("div");
+        meta.className="refusal-meta";
+        if (record.refusalState==="official") {
+          meta.textContent="登録："+formatAdminDate(record.createdAtMillis)+" ／ 確定："+formatAdminDate(record.confirmedAtMillis);
+        } else {
+          meta.textContent="登録："+formatAdminDate(record.createdAtMillis);
+        }
+
+        const actions=document.createElement("div");
+        actions.className="refusal-actions";
+
+        const mapBtn=document.createElement("button");
+        mapBtn.type="button";
+        mapBtn.className="refusal-map-btn";
+        mapBtn.textContent="地図で確認";
+        mapBtn.addEventListener("click",()=>focusRefusalOnMap(record));
+        actions.appendChild(mapBtn);
+
+        if (record.refusalState!=="official") {
+          const confirmBtn=document.createElement("button");
+          confirmBtn.type="button";
+          confirmBtn.className="refusal-confirm-btn";
+          confirmBtn.textContent="確定";
+          confirmBtn.addEventListener("click",()=>confirmRefusal(record));
+          actions.appendChild(confirmBtn);
+        }
+
+        const deleteBtn=document.createElement("button");
+        deleteBtn.type="button";
+        deleteBtn.className="refusal-delete-btn";
+        deleteBtn.textContent="削除";
+        deleteBtn.addEventListener("click",()=>deleteRefusal(record));
+        actions.appendChild(deleteBtn);
+
+        row.append(title,meta,actions);
+        list.appendChild(row);
+      });
+    }
+
+    async function confirmRefusal(record) {
+      if (!record?.docId) return;
+      if (!confirm(record.areaNo+" の訪問拒否を確定しますか？")) return;
+      try {
+        await ensureCurrentUser();
+        await updateDoc(doc(db,VISIT_COLLECTION,record.docId),{
+          refusalState:"official",
+          confirmedAt:serverTimestamp()
+        });
+      } catch(err) {
+        console.error(err);
+        alert("確定できませんでした："+(err.code||err.message));
+      }
+    }
+
+    async function deleteRefusal(record) {
+      if (!record?.docId) return;
+      const kind=record.refusalState==="official" ? "確定済み" : "未確定";
+      if (!confirm(record.areaNo+" の"+kind+"訪問拒否を削除しますか？")) return;
+      try {
+        await ensureCurrentUser();
+        await deleteDoc(doc(db,VISIT_COLLECTION,record.docId));
+      } catch(err) {
+        console.error(err);
+        alert("訪問拒否を削除できませんでした："+(err.code||err.message));
+      }
+    }
+
+    function focusRefusalOnMap(record) {
+      if (!record?.docId) return;
+      const url=new URL(window.location.href);
+      url.searchParams.set("refusal",record.docId);
+      window.open(url.toString(),"_blank","noopener");
+    }
+
+    function handleRefusalFocusFromUrl() {
+      if (refusalFocusHandled) return;
+
+      const docId=REFUSAL_FOCUS_ID;
+      if (!docId) {
+        refusalFocusHandled=true;
+        return;
+      }
+
+      const record=ruralVisitRecords.find(r=>r.docId===docId && r.status==="refuse");
+      refusalFocusHandled=true;
+
+      if (!record) {
+        alert("確認する訪問拒否の記録が見つかりませんでした。削除済みの可能性があります。");
+        return;
+      }
+
+      showRefusalFocus(record);
+    }
+
+    function showRefusalFocus(record) {
+      const select=document.getElementById("areaSelect");
+      if (areaNumbers.includes(record.areaNo)) {
+        select.value=record.areaNo;
+        focusArea(record.areaNo);
+      }
+
+      const pos={lat:Number(record.lat),lng:Number(record.lng)};
+
+      setTimeout(()=>{
+        map.setCenter(pos);
+        map.setZoom(19);
+
+        if (focusHighlightMarker) focusHighlightMarker.setMap(null);
+
+        const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="27" fill="rgba(255,255,255,.92)" stroke="#ff9800" stroke-width="6"/>
+          <circle cx="32" cy="32" r="17" fill="none" stroke="#c62828" stroke-width="5"/>
+          <path d="M24 24 L40 40 M40 24 L24 40" fill="none" stroke="#c62828" stroke-width="5" stroke-linecap="round"/>
+        </svg>`;
+
+        focusHighlightMarker=new google.maps.Marker({
+          position:pos,
+          map,
+          zIndex:1000,
+          animation:google.maps.Animation.BOUNCE,
+          icon:{
+            url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg),
+            scaledSize:new google.maps.Size(64,64),
+            anchor:new google.maps.Point(32,32)
+          }
+        });
+
+        setTimeout(()=>{
+          if (focusHighlightMarker) focusHighlightMarker.setAnimation(null);
+        },2600);
+
+        const stateText=record.refusalState==="official" ? "確定済み" : "未確定";
+        const wrap=document.createElement("div");
+        const title=document.createElement("div");
+        title.style.fontWeight="700";
+        title.style.marginBottom="5px";
+        title.textContent=record.areaNo+"：訪問拒否（"+stateText+"）";
+        const note=document.createElement("div");
+        note.style.fontSize="13px";
+        note.style.color="#555";
+        note.textContent="この地点を確認しています。";
+        wrap.append(title,note);
+
+        infoWindow.setContent(wrap);
+        infoWindow.setPosition(pos);
+        infoWindow.open({map});
+      },350);
+    }
+
+    async function clearActiveAreaVisited() {
+      if (!activeAreaNo) return;
+
+      const areaText=String(activeAreaNo);
+      const numberOnly=areaText.trim();
+
+      const entered=prompt(
+        areaText+" の「訪問済・訪問保留」をすべて削除します。\n"+
+        "訪問拒否の記録は残ります。\n\n"+
+        "確認のため区域番号「"+numberOnly+"」を入力してください。"
+      );
+
+      if (entered===null) return;
+
+      if (entered.trim()!==numberOnly) {
+        alert("区域番号が一致しないため、削除を中止しました。");
+        return;
+      }
+
+      if (!confirm(areaText+" の訪問済・訪問保留を本当にすべて削除しますか？")) return;
+
+      try {
+        await ensureCurrentUser();
+        const q=query(collection(db,VISIT_COLLECTION),where("areaNo","==",areaText));
+        const snap=await getDocs(q);
+        const deletable=snap.docs.filter(d=>String(d.data().areaType||"")==="rural" && String(d.data().status||"")!=="refuse");
+        await Promise.all(deletable.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
+        alert(areaText+" の訪問済・訪問保留を "+deletable.length+" 件削除しました。\n訪問拒否は残しています。");
+      } catch(err) {
+        console.error(err);
+        alert("一括削除できませんでした："+(err.code||err.message));
+      }
+    }
+
+    function updateAddModeButton() {
+      const btn=document.getElementById("addModeBtn");
+      btn.classList.toggle("active",addMode);
+      btn.textContent=addMode?"＋ 追加モード中：場所をタップ":"＋ 記録を追加";
+    }
+
+    async function initMap() {
+      map=new google.maps.Map(document.getElementById("map"),{
+        center:{lat:42.65,lng:141.65},
+        zoom:13,
+        mapTypeControl:true,
+        streetViewControl:false,
+        fullscreenControl:true,
+        gestureHandling:"greedy"
+      });
+      areaLayer=new google.maps.Data();
+      visitedLayer=new google.maps.Data();
+      infoWindow=new google.maps.InfoWindow();
+      createCurrentLocationControl();
+
+      areaLayer.setStyle(areaStyle);
+      visitedLayer.setStyle(feature=>({icon:makeSharedIcon(
+        String(feature.getProperty("status")||"met"),
+        String(feature.getProperty("refusalState")||"")
+      )}));
+      areaLayer.setMap(map);
+      visitedLayer.setMap(map);
+
+      try {
+        await loadAreaGeoJson();
+        makeAreaSelect();
+
+        const savedArea=sessionStorage.getItem("ruralRefreshArea");
+        sessionStorage.removeItem("ruralRefreshArea");
+        if (savedArea && areaNumbers.includes(savedArea)) {
+          const select=document.getElementById("areaSelect");
+          select.value=savedArea;
+          focusArea(savedArea);
+        } else {
+          fitAllAreas();
+        }
+
+        setStatus(`郊外区域 ${areaNumbers.length}件を読み込みました／共有機能に接続しています…`);
+      } catch(err) {
+        console.error(err);
+        alert("郊外区域を読み込めませんでした。\n\n"+err.message);
+      }
+
+      document.getElementById("addModeBtn").addEventListener("click",()=>{
+        if (!activeAreaNo) { alert("先に郊外区域を選択してください。"); return; }
+        addMode=!addMode;
+        updateAddModeButton();
+        map.setOptions({draggableCursor:addMode?"crosshair":null});
+      });
+
+      document.getElementById("refreshBtn").addEventListener("click",()=>{
+        if (activeAreaNo) {
+          sessionStorage.setItem("ruralRefreshArea",String(activeAreaNo));
+        } else {
+          sessionStorage.removeItem("ruralRefreshArea");
+        }
+        window.location.reload();
+      });
+
+      document.getElementById("adminBtn").addEventListener("click",openAdminPanel);
+      document.getElementById("adminCloseBtn").addEventListener("click",closeAdminPanel);
+      document.getElementById("adminOverlay").addEventListener("click",e=>{
+        if (e.target.id==="adminOverlay") closeAdminPanel();
+      });
+      document.getElementById("adminTabPending").addEventListener("click",()=>setAdminTab("pending"));
+      document.getElementById("adminTabOfficial").addEventListener("click",()=>setAdminTab("official"));
+      document.getElementById("clearAreaBtn").addEventListener("click",clearActiveAreaVisited);
+
+      map.addListener("click",e=>{
+        if (!addMode || !activeAreaNo || !e.latLng) return;
+        const wrap=document.createElement("div");
+        const msg=document.createElement("div");
+        msg.textContent=`${activeAreaNo}：この場所の記録を選んでください`;
+        msg.style.marginBottom="10px";
+        wrap.appendChild(msg);
+
+        const choices=[
+          {label:"訪問済",status:"met",color:"#1976d2"},
+          {label:"訪問保留",status:"revisit",color:"#2e7d32"},
+          {label:"訪問拒否",status:"refuse",color:"#c62828"}
+        ];
+        const row=document.createElement("div");
+        row.style.display="flex"; row.style.flexWrap="wrap"; row.style.gap="7px";
+        choices.forEach(choice=>{
+          const btn=document.createElement("button");
+          btn.type="button"; btn.textContent=choice.label;
+          btn.style.padding="8px 12px"; btn.style.border=`2px solid ${choice.color}`; btn.style.color=choice.color; btn.style.background="#fff"; btn.style.borderRadius="8px"; btn.style.fontWeight="700";
+          btn.addEventListener("click",async()=>{infoWindow.close(); await addSharedMark(e.latLng,choice.status);});
+          row.appendChild(btn);
+        });
+        wrap.appendChild(row);
+        infoWindow.setContent(wrap);
+        infoWindow.setPosition(e.latLng);
+        infoWindow.open({map});
+      });
+
+      visitedLayer.addListener("click",e=>{
+        const docId=e.feature.getProperty("docId");
+        const areaNo=e.feature.getProperty("areaNo");
+        const status=String(e.feature.getProperty("status")||"met");
+        const refusalState=String(e.feature.getProperty("refusalState")||"");
+        const createdAtMillis=e.feature.getProperty("createdAtMillis");
+        const labels={met:"訪問済",revisit:"訪問保留",refuse:"訪問拒否"};
+        const wrap=document.createElement("div");
+
+        const msg=document.createElement("div");
+        const refusalSuffix=status==="refuse"
+          ? (refusalState==="official" ? "（確定済み）" : "（確認待ち）")
+          : "";
+        msg.textContent=`${areaNo}：${labels[status]||"訪問済"}${refusalSuffix}`;
+        msg.style.marginBottom="6px";
+
+        const dateLine=document.createElement("div");
+        dateLine.style.marginBottom="10px";
+        dateLine.style.color="#555";
+        dateLine.style.fontSize="13px";
+        if (createdAtMillis) {
+          const dt=new Date(Number(createdAtMillis));
+          dateLine.textContent="登録日時："+dt.toLocaleString("ja-JP",{
+            timeZone:"Asia/Tokyo",
+            year:"numeric",
+            month:"numeric",
+            day:"numeric",
+            hour:"2-digit",
+            minute:"2-digit"
+          });
+        } else {
+          dateLine.textContent="登録日時：記録なし";
+        }
+
+        wrap.appendChild(msg);
+        wrap.appendChild(dateLine);
+
+        if (status==="refuse") {
+          const note=document.createElement("div");
+          note.style.color="#777";
+          note.style.fontSize="13px";
+          note.textContent=refusalState==="official"
+            ? "この訪問拒否は管理者のみ削除できます。"
+            : "管理者の確認待ちです。";
+          wrap.appendChild(note);
+        } else {
+          const del=document.createElement("button");
+          del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
+          del.addEventListener("click",()=>{
+            if (!confirm("この共有印を本当に削除しますか？")) return;
+            removeSharedMark(docId);
+          });
+          wrap.appendChild(del);
+        }
+
+        infoWindow.setContent(wrap); infoWindow.setPosition(e.latLng); infoWindow.open({map});
+      });
+
+      startFirebase();
+    }
+
+    function makeAreaSelect() {
+      const select=document.getElementById("areaSelect");
+      select.innerHTML='<option value="">区域を選択してください</option>';
+      areaNumbers.forEach(no=>{
+        const option=document.createElement("option");
+        option.value=String(no); option.textContent=String(no); select.appendChild(option);
+      });
+      select.addEventListener("change",e=>{
+        if (e.target.value) focusArea(e.target.value);
+        else { activeAreaNo=null; areaLayer.setStyle(areaStyle); updateAdminAreaState(); fitAllAreas(); }
+      });
+    }
+
+    function focusArea(areaNo) {
+      activeAreaNo=String(areaNo);
+      areaLayer.setStyle(areaStyle);
+      updateAdminAreaState();
+      addMode=false; updateAddModeButton();
+      if (currentUser) setStatus(`共有機能：接続済み／${activeAreaNo}を選択中`);
+
+      const bounds=new google.maps.LatLngBounds();
+      let found=false;
+      areaLayer.forEach(feature=>{
+        if (areaNoFromFeature(feature)!==String(areaNo)) return;
+        const g=feature.getGeometry();
+        if (g) g.forEachLatLng(ll=>{bounds.extend(ll);found=true;});
+      });
+      if (found) {
+        map.fitBounds(bounds,45);
+        google.maps.event.addListenerOnce(map,"idle",()=>map.setZoom(Math.min((map.getZoom()||17)+1,18)));
+      } else if (areaCenters[areaNo]) {
+        map.setCenter(areaCenters[areaNo]); map.setZoom(18);
+      }
+    }
+
+    function fitAllAreas() {
+      const bounds=new google.maps.LatLngBounds();
+      let found=false;
+      areaLayer.forEach(feature=>{
+        const g=feature.getGeometry();
+        if (g) g.forEachLatLng(ll=>{bounds.extend(ll);found=true;});
+      });
+      if (found) map.fitBounds(bounds,40);
+    }
+
+    window.initMap=initMap;
+    function loadGoogleMaps() {
+      const script=document.createElement("script");
+      script.src="https://maps.googleapis.com/maps/api/js?key="+encodeURIComponent(GOOGLE_MAPS_API_KEY)+"&callback=initMap";
+      script.async=true;
+      script.onerror=()=>{setStatus("Google Mapsの読み込みに失敗しました");};
+      document.head.appendChild(script);
+    }
+    loadGoogleMaps();
+  </script>
+</body>
+</html>
