@@ -193,7 +193,7 @@
       if (!btn || !text) return;
       btn.disabled=!activeAreaNo;
       text.textContent=activeAreaNo
-        ? `${activeAreaNo} の訪問済・訪問保留を削除します。訪問拒否は残ります。`
+        ? `${activeAreaNo} の在宅記録を削除します。訪問拒否は残ります。`
         : "先に区域を選択してください。";
     }
 
@@ -453,6 +453,7 @@
           if (typeof data.ruralLat !== "number" || typeof data.ruralLng !== "number") return;
 
           const status=String(data.status||"met");
+          if (status==="revisit") return;
           const refusalState=status==="refuse" ? String(data.refusalState||"pending") : "";
           const createdAtMillis=data.createdAt?.toDate ? data.createdAt.toDate().getTime() : null;
           const confirmedAtMillis=data.confirmedAt?.toDate ? data.confirmedAt.toDate().getTime() : null;
@@ -740,7 +741,7 @@
       const numberOnly=areaText.trim();
 
       const entered=prompt(
-        areaText+" の「訪問済・訪問保留」をすべて削除します。\n"+
+        areaText+" の「在宅」の記録をすべて削除します。\n"+
         "訪問拒否の記録は残ります。\n\n"+
         "確認のため区域番号「"+numberOnly+"」を入力してください。"
       );
@@ -752,7 +753,7 @@
         return;
       }
 
-      if (!confirm(areaText+" の訪問済・訪問保留を本当にすべて削除しますか？")) return;
+      if (!confirm(areaText+" の在宅記録を本当にすべて削除しますか？")) return;
 
       try {
         await ensureCurrentUser();
@@ -760,7 +761,7 @@
         const snap=await getDocs(q);
         const deletable=snap.docs.filter(d=>String(d.data().areaType||"")==="rural" && String(d.data().status||"")!=="refuse");
         await Promise.all(deletable.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
-        alert(areaText+" の訪問済・訪問保留を "+deletable.length+" 件削除しました。\n訪問拒否は残しています。");
+        alert(areaText+" の在宅記録を "+deletable.length+" 件削除しました。\n訪問拒否は残しています。");
       } catch(err) {
         console.error(err);
         alert("一括削除できませんでした："+(err.code||err.message));
@@ -849,8 +850,7 @@
         wrap.appendChild(msg);
 
         const choices=[
-          {label:"訪問済",status:"met",color:"#1976d2"},
-          {label:"訪問保留",status:"revisit",color:"#2e7d32"},
+          {label:"在宅",status:"met",color:"#1976d2"},
           {label:"訪問拒否",status:"refuse",color:"#c62828"}
         ];
         const row=document.createElement("div");
@@ -874,14 +874,14 @@
         const status=String(e.feature.getProperty("status")||"met");
         const refusalState=String(e.feature.getProperty("refusalState")||"");
         const createdAtMillis=e.feature.getProperty("createdAtMillis");
-        const labels={met:"訪問済",revisit:"訪問保留",refuse:"訪問拒否"};
+        const labels={met:"在宅",revisit:"旧・訪問保留",refuse:"訪問拒否"};
         const wrap=document.createElement("div");
 
         const msg=document.createElement("div");
         const refusalSuffix=status==="refuse"
           ? (refusalState==="official" ? "（確定済み）" : "（確認待ち）")
           : "";
-        msg.textContent=`${areaNo}：${labels[status]||"訪問済"}${refusalSuffix}`;
+        msg.textContent=`${areaNo}：${labels[status]||"在宅"}${refusalSuffix}`;
         msg.style.marginBottom="6px";
 
         const dateLine=document.createElement("div");
