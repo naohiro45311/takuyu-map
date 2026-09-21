@@ -143,6 +143,8 @@
     let unsubscribeVisited = null;
     let businessVisitRecords = [];
     let adminActiveTab = "pending";
+    let refusalFocusHandled = false;
+    let focusHighlightMarker = null;
     const areaCenters = {};
     const areaNumbers = [];
 
@@ -342,6 +344,7 @@
         });
 
         if (!document.getElementById("adminOverlay").hidden) renderAdminRefusals();
+        handleRefusalFocusFromUrl();
       },err=>{
         console.error(err);
         setStatus("共有データ読込エラー："+(err.code||err.message));
@@ -509,18 +512,85 @@
     }
 
     function focusRefusalOnMap(record) {
-      if (!record) return;
+      if (!record?.docId) return;
+      const url=new URL(window.location.href);
+      url.searchParams.set("refusal",record.docId);
+      window.open(url.toString(),"_blank","noopener");
+    }
+
+    function handleRefusalFocusFromUrl() {
+      if (refusalFocusHandled) return;
+
+      const docId=new URLSearchParams(window.location.search).get("refusal");
+      if (!docId) {
+        refusalFocusHandled=true;
+        return;
+      }
+
+      const record=businessVisitRecords.find(r=>r.docId===docId && r.status==="refuse");
+      refusalFocusHandled=true;
+
+      if (!record) {
+        alert("確認する訪問拒否の記録が見つかりませんでした。削除済みの可能性があります。");
+        return;
+      }
+
+      showRefusalFocus(record);
+    }
+
+    function showRefusalFocus(record) {
       const select=document.getElementById("areaSelect");
       if (areaNumbers.includes(record.areaNo)) {
         select.value=record.areaNo;
         focusArea(record.areaNo);
       }
-      closeAdminPanel();
+
+      const pos={lat:Number(record.lat),lng:Number(record.lng)};
+
       setTimeout(()=>{
-        const pos={lat:Number(record.lat),lng:Number(record.lng)};
         map.setCenter(pos);
         map.setZoom(19);
-      },150);
+
+        if (focusHighlightMarker) focusHighlightMarker.setMap(null);
+
+        const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+          <circle cx="32" cy="32" r="27" fill="rgba(255,255,255,.92)" stroke="#ff9800" stroke-width="6"/>
+          <circle cx="32" cy="32" r="17" fill="none" stroke="#c62828" stroke-width="5"/>
+          <path d="M24 24 L40 40 M40 24 L24 40" fill="none" stroke="#c62828" stroke-width="5" stroke-linecap="round"/>
+        </svg>`;
+
+        focusHighlightMarker=new google.maps.Marker({
+          position:pos,
+          map,
+          zIndex:1000,
+          animation:google.maps.Animation.BOUNCE,
+          icon:{
+            url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg),
+            scaledSize:new google.maps.Size(64,64),
+            anchor:new google.maps.Point(32,32)
+          }
+        });
+
+        setTimeout(()=>{
+          if (focusHighlightMarker) focusHighlightMarker.setAnimation(null);
+        },2600);
+
+        const stateText=record.refusalState==="official" ? "確定済み" : "未確定";
+        const wrap=document.createElement("div");
+        const title=document.createElement("div");
+        title.style.fontWeight="700";
+        title.style.marginBottom="5px";
+        title.textContent=record.areaNo+"：訪問拒否（"+stateText+"）";
+        const note=document.createElement("div");
+        note.style.fontSize="13px";
+        note.style.color="#555";
+        note.textContent="この地点を確認しています。";
+        wrap.append(title,note);
+
+        infoWindow.setContent(wrap);
+        infoWindow.setPosition(pos);
+        infoWindow.open({map});
+      },350);
     }
 
     async function clearActiveAreaVisited() {
