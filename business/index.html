@@ -41,8 +41,22 @@
     .admin-card { border:1px solid #e0e0e0; border-radius:14px; padding:14px; margin-top:12px; background:#fafafa; }
     .admin-card h3 { margin:0 0 6px; font-size:17px; }
     .admin-card p { margin:0 0 12px; color:#666; font-size:14px; line-height:1.5; }
-    .admin-coming { display:flex; gap:8px; }
-    .admin-coming span { flex:1; text-align:center; padding:10px; border-radius:10px; background:#eef3f8; color:#546e7a; font-weight:700; }
+    .admin-tabs { display:flex; gap:8px; margin:8px 0 12px; }
+    .admin-tabs button {
+      flex:1; border:1px solid #cfd8dc; background:#eef3f8; color:#546e7a;
+      padding:10px 8px; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer;
+    }
+    .admin-tabs button.active { background:#e3f2fd; border-color:#64b5f6; color:#0d47a1; }
+    .admin-empty { padding:16px 10px; text-align:center; color:#777; background:#fff; border-radius:10px; }
+    .refusal-row { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:11px; margin-top:9px; }
+    .refusal-row-title { display:flex; align-items:center; gap:7px; font-weight:700; }
+    .refusal-dot { width:11px; height:11px; border-radius:50%; background:#c62828; flex:0 0 auto; }
+    .refusal-meta { color:#666; font-size:13px; margin:5px 0 9px 18px; }
+    .refusal-actions { display:flex; flex-wrap:wrap; gap:7px; }
+    .refusal-actions button { border-radius:8px; padding:7px 10px; font-weight:700; cursor:pointer; }
+    .refusal-map-btn { background:#fff; border:1px solid #90a4ae; color:#455a64; }
+    .refusal-confirm-btn { background:#e8f5e9; border:1px solid #81c784; color:#1b5e20; }
+    .refusal-delete-btn { background:#ffebee; border:1px solid #ef9a9a; color:#b71c1c; }
 
     @media (max-width: 430px) {
       .shared-controls { flex-wrap:nowrap; gap:6px; }
@@ -78,10 +92,13 @@
 
       <div class="admin-card">
         <h3>訪問拒否</h3>
-        <p>未確定・確定済みの訪問拒否を管理する機能は、次の段階で追加します。</p>
-        <div class="admin-coming">
-          <span>未確定</span>
-          <span>確定済み</span>
+        <p>新しく登録された訪問拒否を確認して確定できます。確定済みの拒否も、状況が変わった場合は管理者が削除できます。</p>
+        <div class="admin-tabs" role="tablist" aria-label="訪問拒否の状態">
+          <button type="button" id="adminTabPending" class="active">未確定 <span id="pendingCount">0</span></button>
+          <button type="button" id="adminTabOfficial">確定済み <span id="officialCount">0</span></button>
+        </div>
+        <div id="refusalAdminList">
+          <div class="admin-empty">訪問拒否の記録を読み込んでいます…</div>
         </div>
       </div>
 
@@ -96,7 +113,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
     import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, updateDoc, serverTimestamp, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyAsWJ8uw9RzUQ3nt39Y4Jvru7l838IJ1E4",
@@ -124,6 +141,8 @@
     let addMode = false;
     let currentUser = null;
     let unsubscribeVisited = null;
+    let businessVisitRecords = [];
+    let adminActiveTab = "pending";
     const areaCenters = {};
     const areaNumbers = [];
 
@@ -152,7 +171,7 @@
       if (!btn || !text) return;
       btn.disabled=!activeAreaNo;
       text.textContent=activeAreaNo
-        ? `${activeAreaNo} の共有記録を削除します。`
+        ? `${activeAreaNo} の訪問済・訪問保留を削除します。訪問拒否は残ります。`
         : "先に区域を選択してください。";
     }
 
@@ -164,6 +183,7 @@
         return;
       }
       updateAdminAreaState();
+      renderAdminRefusals();
       document.getElementById("adminOverlay").hidden=false;
     }
 
@@ -176,10 +196,20 @@
       if (el) el.textContent = text;
     }
 
-    function makeSharedIcon(status) {
+    function makeSharedIcon(status,refusalState) {
       const colors = { met:"#1976d2", revisit:"#2e7d32", refuse:"#c62828" };
       const color = colors[status] || colors.met;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="13" fill="#fff" stroke="${color}" stroke-width="4"/><path d="M9.5 17 L14.5 22 L24.5 11.5" fill="none" stroke="${color}" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+      let symbolPath='<path d="M9.5 17 L14.5 22 L24.5 11.5" fill="none" stroke="'+color+'" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>';
+      let dash="";
+      if (status==="refuse") {
+        if (refusalState==="official") {
+          symbolPath='<path d="M11 11 L23 23 M23 11 L11 23" fill="none" stroke="'+color+'" stroke-width="4" stroke-linecap="round"/>';
+        } else {
+          symbolPath='<text x="17" y="22" text-anchor="middle" font-family="Arial,sans-serif" font-size="17" font-weight="700" fill="'+color+'">?</text>';
+          dash=' stroke-dasharray="4 3"';
+        }
+      }
+      const svg=`<svg xmlns="http://www.w3.org/2000/svg" width="34" height="34" viewBox="0 0 34 34"><circle cx="17" cy="17" r="13" fill="#fff" stroke="${color}" stroke-width="4"${dash}/>${symbolPath}</svg>`;
       return { url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg), scaledSize:new google.maps.Size(34,34), anchor:new google.maps.Point(17,17) };
     }
 
@@ -277,6 +307,7 @@
         const existing=[];
         visitedLayer.forEach(f=>existing.push(f));
         existing.forEach(f=>visitedLayer.remove(f));
+        businessVisitRecords=[];
 
         snapshot.forEach(d => {
           const data=d.data();
@@ -284,17 +315,38 @@
           // ビジネス版の記録だけを表示。一般区域版の記録とは混ざりません。
           if (!areaNo.startsWith("B-")) return;
           if (typeof data.businessLat !== "number" || typeof data.businessLng !== "number") return;
+
+          const status=String(data.status||"met");
+          const refusalState=status==="refuse" ? String(data.refusalState||"pending") : "";
+          const createdAtMillis=data.createdAt?.toDate ? data.createdAt.toDate().getTime() : null;
+          const confirmedAtMillis=data.confirmedAt?.toDate ? data.confirmedAt.toDate().getTime() : null;
+
+          businessVisitRecords.push({
+            docId:d.id,
+            areaNo,
+            status,
+            refusalState,
+            lat:data.businessLat,
+            lng:data.businessLng,
+            createdAtMillis,
+            confirmedAtMillis
+          });
+
           visitedLayer.add({
             id:d.id,
             geometry:new google.maps.Data.Point({lat:data.businessLat,lng:data.businessLng}),
             properties:{
               docId:d.id,
               areaNo,
-              status:String(data.status||"met"),
-              createdAtMillis:data.createdAt?.toDate ? data.createdAt.toDate().getTime() : null
+              status,
+              refusalState,
+              createdAtMillis,
+              confirmedAtMillis
             }
           });
         });
+
+        if (!document.getElementById("adminOverlay").hidden) renderAdminRefusals();
       },err=>{
         console.error(err);
         setStatus("共有データ読込エラー："+(err.code||err.message));
@@ -305,14 +357,17 @@
       if (!activeAreaNo) return;
       try {
         const user=await ensureCurrentUser();
-        await addDoc(collection(db,VISIT_COLLECTION),{
+        const normalizedStatus=String(status||"met");
+        const record={
           areaNo:String(activeAreaNo),
           businessLat:latLng.lat(),
           businessLng:latLng.lng(),
-          status:String(status||"met"),
+          status:normalizedStatus,
           createdAt:serverTimestamp(),
           createdBy:user.uid
-        });
+        };
+        if (normalizedStatus==="refuse") record.refusalState="pending";
+        await addDoc(collection(db,VISIT_COLLECTION),record);
         addMode=false;
         updateAddModeButton();
         map.setOptions({draggableCursor:null});
@@ -334,6 +389,145 @@
       }
     }
 
+    function formatAdminDate(millis) {
+      if (!millis) return "日時記録なし";
+      return new Date(Number(millis)).toLocaleString("ja-JP",{
+        timeZone:"Asia/Tokyo",
+        year:"numeric",
+        month:"numeric",
+        day:"numeric",
+        hour:"2-digit",
+        minute:"2-digit"
+      });
+    }
+
+    function setAdminTab(tab) {
+      adminActiveTab=tab==="official" ? "official" : "pending";
+      document.getElementById("adminTabPending").classList.toggle("active",adminActiveTab==="pending");
+      document.getElementById("adminTabOfficial").classList.toggle("active",adminActiveTab==="official");
+      renderAdminRefusals();
+    }
+
+    function renderAdminRefusals() {
+      const list=document.getElementById("refusalAdminList");
+      if (!list) return;
+
+      const refusals=businessVisitRecords
+        .filter(r=>r.status==="refuse")
+        .sort((a,b)=>(b.createdAtMillis||0)-(a.createdAtMillis||0));
+      const pending=refusals.filter(r=>r.refusalState!=="official");
+      const official=refusals.filter(r=>r.refusalState==="official");
+
+      document.getElementById("pendingCount").textContent=String(pending.length);
+      document.getElementById("officialCount").textContent=String(official.length);
+
+      const rows=adminActiveTab==="official" ? official : pending;
+      list.innerHTML="";
+
+      if (!rows.length) {
+        const empty=document.createElement("div");
+        empty.className="admin-empty";
+        empty.textContent=adminActiveTab==="official"
+          ? "確定済みの訪問拒否はありません。"
+          : "未確定の訪問拒否はありません。";
+        list.appendChild(empty);
+        return;
+      }
+
+      rows.forEach(record=>{
+        const row=document.createElement("div");
+        row.className="refusal-row";
+
+        const title=document.createElement("div");
+        title.className="refusal-row-title";
+        const dot=document.createElement("span");
+        dot.className="refusal-dot";
+        const titleText=document.createElement("span");
+        titleText.textContent=record.areaNo+"：訪問拒否";
+        title.append(dot,titleText);
+
+        const meta=document.createElement("div");
+        meta.className="refusal-meta";
+        if (record.refusalState==="official") {
+          meta.textContent="登録："+formatAdminDate(record.createdAtMillis)+" ／ 確定："+formatAdminDate(record.confirmedAtMillis);
+        } else {
+          meta.textContent="登録："+formatAdminDate(record.createdAtMillis);
+        }
+
+        const actions=document.createElement("div");
+        actions.className="refusal-actions";
+
+        const mapBtn=document.createElement("button");
+        mapBtn.type="button";
+        mapBtn.className="refusal-map-btn";
+        mapBtn.textContent="地図で確認";
+        mapBtn.addEventListener("click",()=>focusRefusalOnMap(record));
+        actions.appendChild(mapBtn);
+
+        if (record.refusalState!=="official") {
+          const confirmBtn=document.createElement("button");
+          confirmBtn.type="button";
+          confirmBtn.className="refusal-confirm-btn";
+          confirmBtn.textContent="確定";
+          confirmBtn.addEventListener("click",()=>confirmRefusal(record));
+          actions.appendChild(confirmBtn);
+        }
+
+        const deleteBtn=document.createElement("button");
+        deleteBtn.type="button";
+        deleteBtn.className="refusal-delete-btn";
+        deleteBtn.textContent="削除";
+        deleteBtn.addEventListener("click",()=>deleteRefusal(record));
+        actions.appendChild(deleteBtn);
+
+        row.append(title,meta,actions);
+        list.appendChild(row);
+      });
+    }
+
+    async function confirmRefusal(record) {
+      if (!record?.docId) return;
+      if (!confirm(record.areaNo+" の訪問拒否を確定しますか？")) return;
+      try {
+        await ensureCurrentUser();
+        await updateDoc(doc(db,VISIT_COLLECTION,record.docId),{
+          refusalState:"official",
+          confirmedAt:serverTimestamp()
+        });
+      } catch(err) {
+        console.error(err);
+        alert("確定できませんでした："+(err.code||err.message));
+      }
+    }
+
+    async function deleteRefusal(record) {
+      if (!record?.docId) return;
+      const kind=record.refusalState==="official" ? "確定済み" : "未確定";
+      if (!confirm(record.areaNo+" の"+kind+"訪問拒否を削除しますか？")) return;
+      try {
+        await ensureCurrentUser();
+        await deleteDoc(doc(db,VISIT_COLLECTION,record.docId));
+      } catch(err) {
+        console.error(err);
+        alert("訪問拒否を削除できませんでした："+(err.code||err.message));
+      }
+    }
+
+    function focusRefusalOnMap(record) {
+      if (!record) return;
+      const select=document.getElementById("areaSelect");
+      if (areaNumbers.includes(record.areaNo)) {
+        select.value=record.areaNo;
+        focusArea(record.areaNo);
+      }
+      closeAdminPanel();
+      setTimeout(()=>{
+        const pos={lat:Number(record.lat),lng:Number(record.lng)};
+        map.setCenter(pos);
+        map.setZoom(19);
+      },150);
+    }
+
     async function clearActiveAreaVisited() {
       if (!activeAreaNo) return;
 
@@ -341,7 +535,8 @@
       const numberOnly=areaText.replace(/^B-?/i,"").trim();
 
       const entered=prompt(
-        areaText+" の共有印をすべて削除します。\n\n"+
+        areaText+" の「訪問済・訪問保留」をすべて削除します。\n"+
+        "訪問拒否の記録は残ります。\n\n"+
         "確認のため区域番号「"+numberOnly+"」を入力してください。"
       );
 
@@ -352,14 +547,15 @@
         return;
       }
 
-      if (!confirm(areaText+" の共有印を本当にすべて削除しますか？")) return;
+      if (!confirm(areaText+" の訪問済・訪問保留を本当にすべて削除しますか？")) return;
 
       try {
         await ensureCurrentUser();
         const q=query(collection(db,VISIT_COLLECTION),where("areaNo","==",areaText));
         const snap=await getDocs(q);
-        await Promise.all(snap.docs.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
-        alert(areaText+" の共有印をすべて削除しました。");
+        const deletable=snap.docs.filter(d=>String(d.data().status||"")!=="refuse");
+        await Promise.all(deletable.map(d=>deleteDoc(doc(db,VISIT_COLLECTION,d.id))));
+        alert(areaText+" の訪問済・訪問保留を "+deletable.length+" 件削除しました。\n訪問拒否は残しています。");
       } catch(err) {
         console.error(err);
         alert("一括削除できませんでした："+(err.code||err.message));
@@ -386,7 +582,10 @@
       infoWindow=new google.maps.InfoWindow();
 
       areaLayer.setStyle(areaStyle);
-      visitedLayer.setStyle(feature=>({icon:makeSharedIcon(String(feature.getProperty("status")||"met"))}));
+      visitedLayer.setStyle(feature=>({icon:makeSharedIcon(
+        String(feature.getProperty("status")||"met"),
+        String(feature.getProperty("refusalState")||"")
+      )}));
       areaLayer.setMap(map);
       visitedLayer.setMap(map);
 
@@ -431,6 +630,8 @@
       document.getElementById("adminOverlay").addEventListener("click",e=>{
         if (e.target.id==="adminOverlay") closeAdminPanel();
       });
+      document.getElementById("adminTabPending").addEventListener("click",()=>setAdminTab("pending"));
+      document.getElementById("adminTabOfficial").addEventListener("click",()=>setAdminTab("official"));
       document.getElementById("clearAreaBtn").addEventListener("click",clearActiveAreaVisited);
 
       map.addListener("click",e=>{
@@ -465,12 +666,16 @@
         const docId=e.feature.getProperty("docId");
         const areaNo=e.feature.getProperty("areaNo");
         const status=String(e.feature.getProperty("status")||"met");
+        const refusalState=String(e.feature.getProperty("refusalState")||"");
         const createdAtMillis=e.feature.getProperty("createdAtMillis");
         const labels={met:"訪問済",revisit:"訪問保留",refuse:"訪問拒否"};
         const wrap=document.createElement("div");
 
         const msg=document.createElement("div");
-        msg.textContent=`${areaNo}：${labels[status]||"訪問済"}`;
+        const refusalSuffix=status==="refuse"
+          ? (refusalState==="official" ? "（確定済み）" : "（確認待ち）")
+          : "";
+        msg.textContent=`${areaNo}：${labels[status]||"訪問済"}${refusalSuffix}`;
         msg.style.marginBottom="6px";
 
         const dateLine=document.createElement("div");
@@ -491,15 +696,27 @@
           dateLine.textContent="登録日時：記録なし";
         }
 
-        const del=document.createElement("button");
-        del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
-        del.addEventListener("click",()=>{
-          if (!confirm("この共有印を本当に削除しますか？")) return;
-          removeSharedMark(docId);
-        });
         wrap.appendChild(msg);
         wrap.appendChild(dateLine);
-        wrap.appendChild(del);
+
+        if (status==="refuse") {
+          const note=document.createElement("div");
+          note.style.color="#777";
+          note.style.fontSize="13px";
+          note.textContent=refusalState==="official"
+            ? "この訪問拒否は管理者のみ削除できます。"
+            : "管理者の確認待ちです。";
+          wrap.appendChild(note);
+        } else {
+          const del=document.createElement("button");
+          del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
+          del.addEventListener("click",()=>{
+            if (!confirm("この共有印を本当に削除しますか？")) return;
+            removeSharedMark(docId);
+          });
+          wrap.appendChild(del);
+        }
+
         infoWindow.setContent(wrap); infoWindow.setPosition(e.latLng); infoWindow.open({map});
       });
 
