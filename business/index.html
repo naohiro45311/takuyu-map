@@ -176,12 +176,7 @@
     }
 
     function openAdminPanel() {
-      const entered=prompt("管理者パスワードを入力してください。");
-      if (entered===null) return;
-      if (entered.trim()!==getTodayAdminPassword()) {
-        alert("パスワードが違います。");
-        return;
-      }
+      // テスト期間中は管理者パスワードを一時停止しています。
       updateAdminAreaState();
       renderAdminRefusals();
       document.getElementById("adminOverlay").hidden=false;
