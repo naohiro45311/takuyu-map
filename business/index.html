@@ -20,13 +20,34 @@
     #addModeBtn { background:#e8f5e9; border-color:#a5d6a7; color:#1b5e20; }
     #addModeBtn.active { background:#c8e6c9; border-color:#2e7d32; font-weight:700; }
     #refreshBtn { background:#e3f2fd; border-color:#90caf9; color:#0d47a1; }
-    #clearAreaBtn { background:#ffebee; border-color:#ef9a9a; color:#b71c1c; margin-left:auto; }
+    #adminBtn { background:#f5f7fa; border-color:#b8c1cc; color:#37474f; margin-left:auto; font-weight:700; }
+    #clearAreaBtn { background:#ffebee; border-color:#ef9a9a; color:#b71c1c; width:100%; font-weight:700; }
     #map { width:100%; flex:1 1 auto; min-height:0; }
+
+    .admin-overlay {
+      position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.35);
+      display:flex; align-items:flex-end; justify-content:center;
+    }
+    .admin-overlay[hidden] { display:none; }
+    .admin-panel {
+      width:min(680px,100%); max-height:82vh; overflow:auto; background:#fff;
+      border-radius:20px 20px 0 0; padding:16px 16px 24px;
+      box-shadow:0 -8px 30px rgba(0,0,0,.18);
+    }
+    .admin-head { display:flex; align-items:center; gap:10px; margin-bottom:16px; }
+    .admin-head h2 { margin:0; font-size:21px; }
+    .admin-badge { background:#ffebee; color:#b71c1c; padding:5px 9px; border-radius:999px; font-size:13px; font-weight:700; }
+    #adminCloseBtn { margin-left:auto; border:0; background:transparent; font-size:28px; line-height:1; color:#666; cursor:pointer; }
+    .admin-card { border:1px solid #e0e0e0; border-radius:14px; padding:14px; margin-top:12px; background:#fafafa; }
+    .admin-card h3 { margin:0 0 6px; font-size:17px; }
+    .admin-card p { margin:0 0 12px; color:#666; font-size:14px; line-height:1.5; }
+    .admin-coming { display:flex; gap:8px; }
+    .admin-coming span { flex:1; text-align:center; padding:10px; border-radius:10px; background:#eef3f8; color:#546e7a; font-weight:700; }
 
     @media (max-width: 430px) {
       .shared-controls { flex-wrap:nowrap; gap:6px; }
       .shared-controls button { padding:8px 9px; font-size:14px; white-space:nowrap; }
-      #clearAreaBtn { margin-left:auto; }
+      #adminBtn { margin-left:auto; }
     }
   </style>
 </head>
@@ -41,11 +62,36 @@
     <div class="shared-controls">
       <button type="button" id="addModeBtn">＋ 記録を追加</button>
       <button type="button" id="refreshBtn">↻ 再表示</button>
-      <button type="button" id="clearAreaBtn" disabled>記録を全消去</button>
+      <button type="button" id="adminBtn">⚙ 管理</button>
     </div>
   </div>
 
   <div id="map"></div>
+
+  <div id="adminOverlay" class="admin-overlay" hidden>
+    <div class="admin-panel" role="dialog" aria-modal="true" aria-labelledby="adminTitle">
+      <div class="admin-head">
+        <h2 id="adminTitle">訪問拒否の管理</h2>
+        <span class="admin-badge">管理者モード</span>
+        <button type="button" id="adminCloseBtn" aria-label="管理画面を閉じる">×</button>
+      </div>
+
+      <div class="admin-card">
+        <h3>訪問拒否</h3>
+        <p>未確定・確定済みの訪問拒否を管理する機能は、次の段階で追加します。</p>
+        <div class="admin-coming">
+          <span>未確定</span>
+          <span>確定済み</span>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>区域の記録を全消去</h3>
+        <p id="clearAreaAdminText">先に区域を選択してください。</p>
+        <button type="button" id="clearAreaBtn" disabled>選択区域の記録を全消去</button>
+      </div>
+    </div>
+  </div>
 
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
@@ -87,6 +133,42 @@
 
     function naturalAreaSort(a,b) {
       return String(a).localeCompare(String(b),"ja",{numeric:true,sensitivity:"base"});
+    }
+
+    function getTodayAdminPassword() {
+      const parts=new Intl.DateTimeFormat("en-US",{
+        timeZone:"Asia/Tokyo",
+        year:"numeric",
+        month:"2-digit",
+        day:"2-digit"
+      }).formatToParts(new Date());
+      const values=Object.fromEntries(parts.map(p=>[p.type,p.value]));
+      return `${values.year}${values.month}${values.day}`;
+    }
+
+    function updateAdminAreaState() {
+      const btn=document.getElementById("clearAreaBtn");
+      const text=document.getElementById("clearAreaAdminText");
+      if (!btn || !text) return;
+      btn.disabled=!activeAreaNo;
+      text.textContent=activeAreaNo
+        ? `${activeAreaNo} の共有記録を削除します。`
+        : "先に区域を選択してください。";
+    }
+
+    function openAdminPanel() {
+      const entered=prompt("管理者パスワードを入力してください。");
+      if (entered===null) return;
+      if (entered.trim()!==getTodayAdminPassword()) {
+        alert("パスワードが違います。");
+        return;
+      }
+      updateAdminAreaState();
+      document.getElementById("adminOverlay").hidden=false;
+    }
+
+    function closeAdminPanel() {
+      document.getElementById("adminOverlay").hidden=true;
     }
 
     function setStatus(text) {
@@ -177,7 +259,7 @@
           currentUser = user || null;
           if (currentUser) {
             setStatus(`共有機能：接続済み／ビジネス区域 ${areaNumbers.length}件`);
-            document.getElementById("clearAreaBtn").disabled = !activeAreaNo;
+            updateAdminAreaState();
             subscribeVisited();
           } else {
             setStatus("共有機能：未接続");
@@ -344,6 +426,11 @@
         window.location.reload();
       });
 
+      document.getElementById("adminBtn").addEventListener("click",openAdminPanel);
+      document.getElementById("adminCloseBtn").addEventListener("click",closeAdminPanel);
+      document.getElementById("adminOverlay").addEventListener("click",e=>{
+        if (e.target.id==="adminOverlay") closeAdminPanel();
+      });
       document.getElementById("clearAreaBtn").addEventListener("click",clearActiveAreaVisited);
 
       map.addListener("click",e=>{
@@ -428,14 +515,14 @@
       });
       select.addEventListener("change",e=>{
         if (e.target.value) focusArea(e.target.value);
-        else { activeAreaNo=null; areaLayer.setStyle(areaStyle); document.getElementById("clearAreaBtn").disabled=true; fitAllAreas(); }
+        else { activeAreaNo=null; areaLayer.setStyle(areaStyle); updateAdminAreaState(); fitAllAreas(); }
       });
     }
 
     function focusArea(areaNo) {
       activeAreaNo=String(areaNo);
       areaLayer.setStyle(areaStyle);
-      document.getElementById("clearAreaBtn").disabled=false;
+      updateAdminAreaState();
       addMode=false; updateAddModeButton();
       if (currentUser) setStatus(`共有機能：接続済み／${activeAreaNo}を選択中`);
 
