@@ -54,6 +54,7 @@ jobs:
           key = os.environ["GOOGLE_MAPS_API_KEY"]
 
           for path in [
+              Path("_site/index.html"),
               Path("_site/business/index.html"),
               Path("_site/rural/index.html"),
           ]:
