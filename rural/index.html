@@ -463,6 +463,7 @@
             areaNo,
             status,
             refusalState,
+            createdBy:String(data.createdBy||""),
             lat:data.ruralLat,
             lng:data.ruralLng,
             createdAtMillis,
@@ -477,6 +478,7 @@
               areaNo,
               status,
               refusalState,
+              createdBy:String(data.createdBy||""),
               createdAtMillis,
               confirmedAtMillis
             }
@@ -873,6 +875,7 @@
         const areaNo=e.feature.getProperty("areaNo");
         const status=String(e.feature.getProperty("status")||"met");
         const refusalState=String(e.feature.getProperty("refusalState")||"");
+        const createdBy=String(e.feature.getProperty("createdBy")||"");
         const createdAtMillis=e.feature.getProperty("createdAtMillis");
         const labels={met:"在宅",revisit:"旧・訪問保留",refuse:"訪問拒否"};
         const wrap=document.createElement("div");
@@ -909,10 +912,30 @@
           const note=document.createElement("div");
           note.style.color="#777";
           note.style.fontSize="13px";
-          note.textContent=refusalState==="official"
-            ? "この訪問拒否は管理者のみ削除できます。"
-            : "管理者の確認待ちです。";
-          wrap.appendChild(note);
+
+          if (refusalState==="official") {
+            note.textContent="この訪問拒否は管理者のみ削除できます。";
+            wrap.appendChild(note);
+          } else {
+            const isCreator=Boolean(currentUser && createdBy && createdBy===currentUser.uid);
+            note.textContent=isCreator
+              ? "確定前のため、登録した人が削除できます。"
+              : "管理者の確認待ちです。";
+            wrap.appendChild(note);
+
+            if (isCreator) {
+              const del=document.createElement("button");
+              del.type="button";
+              del.textContent="この訪問拒否を消す";
+              del.style.padding="7px 12px";
+              del.style.marginTop="8px";
+              del.addEventListener("click",()=>{
+                if (!confirm("この未確定の訪問拒否を削除しますか？")) return;
+                removeSharedMark(docId);
+              });
+              wrap.appendChild(del);
+            }
+          }
         } else {
           const del=document.createElement("button");
           del.type="button"; del.textContent="この印を消す"; del.style.padding="7px 12px";
